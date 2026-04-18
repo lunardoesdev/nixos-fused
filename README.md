@@ -12,6 +12,7 @@ cp secrets.toml.example secrets.toml
 
 Edit `secrets.toml` and set:
 
+- `disk_device`
 - `user_name`
 - `user_password`
 - `root_password`
@@ -25,7 +26,16 @@ user_name = "..."
 user_password = "..."
 root_password = "..."
 luks_password = "..."
+
+[install]
+disk_device = "/dev/vda"
 ```
+
+You generally do not need to think about `install.disk_device` at all.
+Only change it when you are formatting a disk with Disko, for example via
+`nixos-anywhere`, `disko-install`, or another Disko-based install flow.
+For normal day-to-day `nixos-rebuild` usage on an already installed system,
+leave it alone.
 
 ## Commands
 
@@ -90,11 +100,12 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - A 1 MiB swapfile is declared via `swapDevices`, not via Disko.
 - `flake.nix` includes commented examples for initrd keyfile-based auto-unlock, but the default boot behavior is still interactive passphrase entry.
 - The normal username comes from `secrets.toml` as `user_name` and defaults to `nixos` if you omit it.
-- `secrets.toml` uses a single `[secrets]` table containing `user_name`, `user_password`, `root_password`, and `luks_password`.
+- `secrets.toml` uses a `[secrets]` table for credentials and an `[install]` table for deploy-time disk settings.
 - The normal user and `root` both use the plain-text NixOS `password` option, so there is no separate password hashing step.
 - `flake.nix` reads `secrets.toml` with `builtins.fromTOML`, so there is no custom config parser left in the flake.
 - The LUKS password from `secrets.toml` is converted into a temporary Nix store file and passed to Disko as `passwordFile` for formatting and image/install creation.
 - The LUKS password in `secrets.toml` does not enable boot-time auto-unlock by itself. The initrd still prompts unless you uncomment the keyfile example in `flake.nix`.
+- `install.disk_device` controls the target device used by Disko and Limine's BIOS install path. You usually only change it for nixos-anywhere, disko-install, or other formatting workflows.
 - Because `secrets.toml` is gitignored, use `path:.#...` for `nix build` and `path:.#myhost` for `nixos-rebuild`. That makes Nix read the local directory directly instead of the Git-indexed flake snapshot.
 - Reproducibility comes from `flake.lock`. Commit it, and update inputs explicitly when you want to change versions.
 

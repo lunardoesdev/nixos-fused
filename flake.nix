@@ -33,6 +33,9 @@
               root_password = "..."
               luks_password = "..."
 
+              [install]
+              disk_device = "/dev/..."
+
             After that, build or rebuild using the local path flake reference, for example:
 
               sudo nix build path:.#system
@@ -56,7 +59,9 @@
         };
 
         disk = {
-          device = "/dev/vda";
+          # Only matters for Disko actions such as image creation, disko-install,
+          # or nixos-anywhere deployments. Normal rebuilds do not repartition.
+          device = lib.attrByPath [ "install" "disk_device" ] "/dev/vda" rawSecrets;
           imageName = hostName;
           imageSize = "10G";
           efiSize = "512M";
