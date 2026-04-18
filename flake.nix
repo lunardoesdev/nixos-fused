@@ -1,5 +1,5 @@
 {
-  description = "Minimal NixOS configuration with Disko and Limine";
+  description = "Minimal NixOS flake with Disko, Limine, and LUKS";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -8,18 +8,73 @@
   };
 
   outputs =
-    { disko, nixpkgs, ... }:
+    { self, disko, nixpkgs, ... }:
     let
-      system = "x86_64-linux";
-      hostName = "myhost";
-      userName = "nixos";
-      userPassword = "changeme";
-      passwordHashFile = ./secrets/nixos-password.hash;
+      lib = nixpkgs.lib;
+      secretsFile = builtins.toString ./. + "/secrets.toml";
+      rawSecrets =
+        if builtins.pathExists secretsFile then
+          builtins.fromTOML (builtins.readFile secretsFile)
+        else
+          throw ''
+            Missing secrets.toml.
+
+            This configuration requires a local secrets file before it can be evaluated.
+
+            Create it by copying the example file in the repository root:
+
+              cp secrets.toml.example secrets.toml
+
+            Then edit secrets.toml and set your real values in:
+
+              [secrets]
+              user_name = "..."
+              user_password = "..."
+              root_password = "..."
+              luks_password = "..."
+
+            After that, build or rebuild using the local path flake reference, for example:
+
+              sudo nix build path:.#system
+              sudo nixos-rebuild switch --flake path:.#myhost
+          '';
+      cfg = rec {
+        system = "x86_64-linux";
+        hostName = "myhost";
+        locale = "en_US.UTF-8";
+        supportedLocale = "en_US.UTF-8/UTF-8";
+        stateVersion = "26.05";
+        swapMiB = 1;
+
+        user = {
+          name = lib.attrByPath [ "secrets" "user_name" ] "nixos" rawSecrets;
+          password = lib.attrByPath [ "secrets" "user_password" ] "changeme" rawSecrets;
+        };
+
+        root = {
+          password = lib.attrByPath [ "secrets" "root_password" ] "changeme-root" rawSecrets;
+        };
+
+        disk = {
+          device = "/dev/vda";
+          imageName = hostName;
+          imageSize = "10G";
+          efiSize = "512M";
+        };
+
+        luks = {
+          name = "crypted";
+          allowDiscards = true;
+          password = lib.attrByPath [ "secrets" "luks_password" ] null rawSecrets;
+        };
+      };
+      luksPasswordFile =
+        if cfg.luks.password == null then null else builtins.toFile "luks-password" cfg.luks.password;
       diskLayout =
         {
-          device ? "/dev/vda",
-          imageName ? hostName,
-          imageSize ? "3G",
+          device ? cfg.disk.device,
+          imageName ? cfg.disk.imageName,
+          imageSize ? cfg.disk.imageSize,
         }:
         {
           disko.devices = {
@@ -36,7 +91,7 @@
                   };
                   ESP = {
                     priority = 2;
-                    size = "512M";
+                    size = cfg.disk.efiSize;
                     type = "EF00";
                     content = {
                       type = "filesystem";
@@ -47,34 +102,39 @@
                   };
                   root = {
                     size = "100%";
-                    content = {
-                      type = "btrfs";
-                      mountpoint = "/";
-                    };
+                    content =
+                      {
+                        type = "luks";
+                        name = cfg.luks.name;
+                        settings.allowDiscards = cfg.luks.allowDiscards;
+                        content = {
+                          type = "btrfs";
+                          mountpoint = "/";
+                        };
+                      }
+                      // lib.optionalAttrs (luksPasswordFile != null) {
+                        passwordFile = luksPasswordFile;
+                      };
                   };
                 };
               };
             };
           };
         };
-      diskConfig = diskLayout {
-        device = "/dev/vda";
-        imageName = hostName;
-        imageSize = "3G";
-      };
+      diskConfig = diskLayout { };
     in
     {
-      diskoConfigurations.${hostName} = diskConfig;
+      diskoConfigurations.${cfg.hostName} = diskConfig;
 
-      nixosConfigurations.${hostName} = nixpkgs.lib.nixosSystem {
-        inherit system;
+      nixosConfigurations.${cfg.hostName} = nixpkgs.lib.nixosSystem {
+        inherit (cfg) system;
         modules = [
           disko.nixosModules.disko
           diskConfig
           (
             { config, lib, ... }:
             {
-              networking.hostName = hostName;
+              networking.hostName = cfg.hostName;
 
               documentation.enable = false;
               services.udisks2.enable = false;
@@ -82,8 +142,8 @@
               services.pulseaudio.enable = false;
               security.polkit.enable = lib.mkForce false;
 
-              i18n.defaultLocale = "en_US.UTF-8";
-              i18n.supportedLocales = [ "en_US.UTF-8/UTF-8" ];
+              i18n.defaultLocale = cfg.locale;
+              i18n.supportedLocales = [ cfg.supportedLocale ];
 
               nix.settings.experimental-features = [
                 "nix-command"
@@ -101,32 +161,48 @@
                 biosDevice = config.disko.devices.disk.main.device;
                 partitionIndex = 1;
               };
+              # Interactive passphrase entry is the default because the Disko
+              # LUKS device above does not define an initrd key file.
+              #
+              # For unattended unlock, embed a key into the initrd and point
+              # the generated boot.initrd.luks.devices.crypted entry at it:
+              #
+              # boot.initrd.secrets."/crypto_keyfile.bin" = ./crypto_keyfile.bin;
+              # disko.devices.disk.main.content.partitions.root.content.settings.keyFile =
+              #   "/crypto_keyfile.bin";
               system.switch.enable = true;
 
               swapDevices = [
                 {
                   device = "/swapfile";
-                  size = 1;
+                  size = cfg.swapMiB;
                 }
               ];
 
               users.mutableUsers = false;
-              users.users.${userName} =
+              users.users.root.password = cfg.root.password;
+              users.users.${cfg.user.name} =
                 {
                   isNormalUser = true;
                   extraGroups = [ "wheel" ];
-                }
-                // lib.optionalAttrs (builtins.pathExists passwordHashFile) {
-                  hashedPasswordFile = passwordHashFile;
-                }
-                // lib.optionalAttrs (!(builtins.pathExists passwordHashFile)) {
-                  initialPassword = userPassword;
+                  password = cfg.user.password;
                 };
 
-              system.stateVersion = config.system.nixos.release;
+              system.stateVersion = cfg.stateVersion;
             }
           )
         ];
       };
+
+      packages.${cfg.system} =
+        let
+          build = self.nixosConfigurations.${cfg.hostName}.config.system.build;
+        in
+        {
+          default = build.toplevel;
+          system = build.toplevel;
+          image = build.diskoImages;
+          "image-script" = build.diskoImagesScript;
+        };
     };
 }
