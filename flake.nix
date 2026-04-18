@@ -7,6 +7,8 @@
     disko.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    devkitNix.url = "github:bandithedoge/devkitNix";
+    devkitNix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -15,11 +17,16 @@
       disko,
       nixpkgs,
       home-manager,
+      devkitNix,
       ...
     }:
     let
       lib = nixpkgs.lib;
       makeIsoImagePath = nixpkgs + "/nixos/lib/make-iso9660-image.nix";
+      pkgsFor = import nixpkgs {
+        system = "x86_64-linux";
+        overlays = [ devkitNix.overlays.default ];
+      };
       secretsFile = builtins.toString ./. + "/secrets.toml";
       rawSecrets =
         if builtins.pathExists secretsFile then
@@ -168,6 +175,29 @@
         "videoinfo"
         "png"
       ];
+      commonBuildTools = with pkgsFor; [
+        cmake
+        meson
+        xmake
+        autoconf
+        gnumake
+        pkg-config
+      ];
+      nativeDevPackages = with pkgsFor; [
+        gcc
+        sdl3
+      ] ++ commonBuildTools;
+      mingwDevPackages = commonBuildTools ++ [
+        pkgsCross.mingwW64.stdenv.cc
+      ];
+      gbaDevPackages = with pkgsFor; [
+        devkitNix.devkitARM
+      ] ++ commonBuildTools;
+      offlineDevPackages = lib.unique (
+        nativeDevPackages
+        ++ mingwDevPackages
+        ++ gbaDevPackages
+      );
       commonModule =
         { lib, ... }:
         {
@@ -186,6 +216,7 @@
             "nix-command"
             "flakes"
           ];
+          nixpkgs.overlays = [ devkitNix.overlays.default ];
 
           system.switch.enable = true;
 
@@ -204,6 +235,14 @@
               extraGroups = [ "wheel" ];
               password = cfg.user.password;
             };
+
+          environment.systemPackages = offlineDevPackages;
+          system.extraDependencies = offlineDevPackages ++ [
+            nixpkgs
+            disko
+            home-manager
+            devkitNix
+          ];
 
           system.stateVersion = cfg.stateVersion;
         };
@@ -503,5 +542,18 @@
           "image-script" = build.diskoImagesScript;
           iso = isoBuild.isoImage;
         };
+      devShells.${cfg.system} = {
+        native = pkgsFor.mkShell {
+          packages = nativeDevPackages;
+        };
+
+        mingw = pkgsFor.mkShell {
+          packages = mingwDevPackages;
+        };
+
+        gba = pkgsFor.mkShell.override { stdenv = pkgsFor.devkitNix.stdenvARM; } {
+          packages = commonBuildTools;
+        };
+      };
     };
 }

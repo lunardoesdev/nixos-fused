@@ -46,6 +46,24 @@ Build the system:
 sudo nix build path:.#system
 ```
 
+Enter the native C/C++ development shell:
+
+```bash
+nix develop path:.#native
+```
+
+Enter the MinGW cross-compilation shell:
+
+```bash
+nix develop path:.#mingw
+```
+
+Enter the Game Boy Advance shell with `devkitARM`:
+
+```bash
+nix develop path:.#gba
+```
+
 Build the installer ISO image:
 
 ```bash
@@ -96,6 +114,8 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - Home Manager is wired in through the NixOS module, so `nixos-rebuild` builds the system and both home configurations together.
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
 - All systems now use X11 + LightDM + Xfce, with `picom` enabled as the session compositor.
+- The flake now exposes exactly three dev shells: `native`, `mingw`, and `gba`.
+- Their toolchains are also installed into the system closure and added to `system.extraDependencies`, so they stay available offline on the installed system and the ISO.
 - `secrets.toml.example` is the template. Copy it to `secrets.toml` before building.
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
@@ -128,7 +148,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 Update pinned inputs:
 
 ```bash
-sudo nix flake lock --update-input nixpkgs --update-input disko --update-input home-manager
+sudo nix flake lock --update-input nixpkgs --update-input disko --update-input home-manager --update-input devkitNix
 ```
 
 Review pinned versions:
