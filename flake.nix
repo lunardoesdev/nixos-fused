@@ -27,8 +27,7 @@
               environment.defaultPackages = lib.mkForce [ ];
               services.udisks2.enable = false;
               services.printing.enable = false;
-              sound.enable = false;
-              hardware.pulseaudio.enable = false;
+              services.pulseaudio.enable = false;
               virtualisation.diskSize = 1024;
 
               nix.settings.experimental-features = [
@@ -37,6 +36,7 @@
               ];
 
               boot.loader.grub.enable = false;
+              boot.loader.systemd-boot.enable = lib.mkForce false;
               boot.loader.efi.canTouchEfiVariables = false;
               boot.loader.limine.enable = true;
               boot.loader.limine.efiSupport = true;
