@@ -95,6 +95,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - The main tunables live near the top of `flake.nix` in the `cfg` attrset: host name, disk/image settings, locale, LUKS name, swap size, and default user settings.
 - Home Manager is wired in through the NixOS module, so `nixos-rebuild` builds the system and both home configurations together.
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
+- All systems now use X11 + LightDM + Xfce, with `picom` enabled as the session compositor.
 - `secrets.toml.example` is the template. Copy it to `secrets.toml` before building.
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
@@ -103,11 +104,14 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - The installed system writes both `BOOTX64.EFI` and `BOOTIA32.EFI` to the removable EFI boot path, so x86_64 and IA32 UEFI firmware can both find Limine.
 - `path:.#iso` builds installer/live media using the same base settings from this flake, with installer-specific overrides layered on top. It is not your installed target filesystem image.
 - The ISO also carries both `BOOTX64.EFI` and `BOOTIA32.EFI` in its EFI payload.
+- Xfce's own `xfwm4` compositor is disabled globally through `/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml`, so only `picom` is active by default.
+- To disable compositing altogether, set `services.picom.enable = false;` in `flake.nix` and rebuild. `xfwm4` compositing is already forced off by default, so disabling picom leaves you with no compositor at all.
+- For a one-session runtime test without rebuilding, run `systemctl --user stop picom.service` after login.
 - `/boot` stays unencrypted so Limine can load the kernel and initrd, and the initrd then prompts for the LUKS passphrase to unlock `/`.
 - The Disko image output is named `myhost.raw` and defaults to `10G`.
 - The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
 - The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.
-- The config is intentionally small: docs are disabled, audio/printing/udisks are disabled, polkit is off, and locales are limited to `en_US.UTF-8`.
+- The config is still intentionally restrained: docs are disabled, printing and audio are off, locales are limited to `en_US.UTF-8`, and the desktop stack is Xfce with the tiny LightDM greeter plus `picom`.
 - Nix remains enabled inside the installed image, so the system is rebuildable with `nixos-rebuild`.
 - A 1 MiB swapfile is declared via `swapDevices`, not via Disko.
 - `flake.nix` includes commented examples for initrd keyfile-based auto-unlock, but the default boot behavior is still interactive passphrase entry.

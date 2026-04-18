@@ -174,10 +174,10 @@
           networking.hostName = lib.mkDefault cfg.hostName;
 
           documentation.enable = false;
-          services.udisks2.enable = false;
+          services.udisks2.enable = lib.mkDefault false;
           services.printing.enable = false;
           services.pulseaudio.enable = false;
-          security.polkit.enable = lib.mkForce false;
+          security.polkit.enable = lib.mkDefault false;
 
           i18n.defaultLocale = cfg.locale;
           i18n.supportedLocales = [ cfg.supportedLocale ];
@@ -206,6 +206,35 @@
             };
 
           system.stateVersion = cfg.stateVersion;
+        };
+      desktopCommonModule =
+        { lib, ... }:
+        {
+          services.xserver.enable = true;
+          services.displayManager.defaultSession = "xfce";
+          services.xserver.displayManager.lightdm.enable = true;
+          services.xserver.displayManager.lightdm.greeters.tiny.enable = true;
+          services.xserver.desktopManager.xfce.enable = true;
+
+          services.picom = {
+            enable = true;
+            backend = "xrender";
+            vSync = false;
+            shadow = false;
+            fade = false;
+          };
+
+          # Xfce ships with xfwm4's compositor. Keep it disabled globally so
+          # picom is the only compositor users run by default.
+          environment.etc."xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml".text = ''
+            <?xml version="1.0" encoding="UTF-8"?>
+
+            <channel name="xfwm4" version="1.0">
+              <property name="general" type="empty">
+                <property name="use_compositing" type="bool" value="false"/>
+              </property>
+            </channel>
+          '';
         };
       homeManagerCommonModule =
         {
@@ -445,6 +474,7 @@
           disko.nixosModules.disko
           diskConfig
           commonModule
+          desktopCommonModule
           homeManagerModule
           installedSystemModule
         ];
@@ -455,6 +485,7 @@
         modules = [
           (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal-new-kernel-no-zfs.nix")
           commonModule
+          desktopCommonModule
           homeManagerModule
           isoSystemModule
         ];
