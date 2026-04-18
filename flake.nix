@@ -44,6 +44,7 @@
       cfg = rec {
         system = "x86_64-linux";
         hostName = "myhost";
+        isoConfigName = "${hostName}-installer";
         locale = "en_US.UTF-8";
         supportedLocale = "en_US.UTF-8/UTF-8";
         stateVersion = "26.05";
@@ -127,6 +128,76 @@
           };
         };
       diskConfig = diskLayout { };
+      commonModule =
+        { lib, ... }:
+        {
+          networking.hostName = lib.mkDefault cfg.hostName;
+
+          documentation.enable = false;
+          services.udisks2.enable = false;
+          services.printing.enable = false;
+          services.pulseaudio.enable = false;
+          security.polkit.enable = lib.mkForce false;
+
+          i18n.defaultLocale = cfg.locale;
+          i18n.supportedLocales = [ cfg.supportedLocale ];
+
+          nix.settings.experimental-features = [
+            "nix-command"
+            "flakes"
+          ];
+
+          system.switch.enable = true;
+
+          swapDevices = [
+            {
+              device = "/swapfile";
+              size = cfg.swapMiB;
+            }
+          ];
+
+          users.mutableUsers = false;
+          users.users.root.password = cfg.root.password;
+          users.users.${cfg.user.name} =
+            {
+              isNormalUser = true;
+              extraGroups = [ "wheel" ];
+              password = cfg.user.password;
+            };
+
+          system.stateVersion = cfg.stateVersion;
+        };
+      installedSystemModule =
+        { config, lib, ... }:
+        {
+          boot.loader.grub.enable = false;
+          boot.loader.systemd-boot.enable = lib.mkForce false;
+          boot.loader.efi.canTouchEfiVariables = false;
+          boot.loader.limine = {
+            enable = true;
+            efiSupport = true;
+            efiInstallAsRemovable = true;
+            biosSupport = true;
+            biosDevice = config.disko.devices.disk.main.device;
+            partitionIndex = 1;
+          };
+          # Interactive passphrase entry is the default because the Disko
+          # LUKS device above does not define an initrd key file.
+          #
+          # For unattended unlock, embed a key into the initrd and point
+          # the generated boot.initrd.luks.devices.crypted entry at it:
+          #
+          # boot.initrd.secrets."/crypto_keyfile.bin" = ./crypto_keyfile.bin;
+          # disko.devices.disk.main.content.partitions.root.content.settings.keyFile =
+          #   "/crypto_keyfile.bin";
+        };
+      isoSystemModule =
+        { lib, ... }:
+        {
+          networking.hostName = lib.mkForce cfg.isoConfigName;
+          isoImage.configurationName = cfg.isoConfigName;
+          isoImage.appendToMenuLabel = " ${cfg.hostName} installer";
+        };
     in
     {
       diskoConfigurations.${cfg.hostName} = diskConfig;
@@ -136,78 +207,31 @@
         modules = [
           disko.nixosModules.disko
           diskConfig
-          (
-            { config, lib, ... }:
-            {
-              networking.hostName = cfg.hostName;
+          commonModule
+          installedSystemModule
+        ];
+      };
 
-              documentation.enable = false;
-              services.udisks2.enable = false;
-              services.printing.enable = false;
-              services.pulseaudio.enable = false;
-              security.polkit.enable = lib.mkForce false;
-
-              i18n.defaultLocale = cfg.locale;
-              i18n.supportedLocales = [ cfg.supportedLocale ];
-
-              nix.settings.experimental-features = [
-                "nix-command"
-                "flakes"
-              ];
-
-              boot.loader.grub.enable = false;
-              boot.loader.systemd-boot.enable = lib.mkForce false;
-              boot.loader.efi.canTouchEfiVariables = false;
-              boot.loader.limine = {
-                enable = true;
-                efiSupport = true;
-                efiInstallAsRemovable = true;
-                biosSupport = true;
-                biosDevice = config.disko.devices.disk.main.device;
-                partitionIndex = 1;
-              };
-              # Interactive passphrase entry is the default because the Disko
-              # LUKS device above does not define an initrd key file.
-              #
-              # For unattended unlock, embed a key into the initrd and point
-              # the generated boot.initrd.luks.devices.crypted entry at it:
-              #
-              # boot.initrd.secrets."/crypto_keyfile.bin" = ./crypto_keyfile.bin;
-              # disko.devices.disk.main.content.partitions.root.content.settings.keyFile =
-              #   "/crypto_keyfile.bin";
-              system.switch.enable = true;
-
-              swapDevices = [
-                {
-                  device = "/swapfile";
-                  size = cfg.swapMiB;
-                }
-              ];
-
-              users.mutableUsers = false;
-              users.users.root.password = cfg.root.password;
-              users.users.${cfg.user.name} =
-                {
-                  isNormalUser = true;
-                  extraGroups = [ "wheel" ];
-                  password = cfg.user.password;
-                };
-
-              system.stateVersion = cfg.stateVersion;
-            }
-          )
+      nixosConfigurations.${cfg.isoConfigName} = nixpkgs.lib.nixosSystem {
+        inherit (cfg) system;
+        modules = [
+          (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal-new-kernel-no-zfs.nix")
+          commonModule
+          isoSystemModule
         ];
       };
 
       packages.${cfg.system} =
         let
           build = self.nixosConfigurations.${cfg.hostName}.config.system.build;
+          isoBuild = self.nixosConfigurations.${cfg.isoConfigName}.config.system.build;
         in
         {
           default = build.toplevel;
           system = build.toplevel;
           image = build.diskoImages;
           "image-script" = build.diskoImagesScript;
+          iso = isoBuild.isoImage;
         };
     };
 }
