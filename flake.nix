@@ -188,10 +188,10 @@
         sdl3
       ] ++ commonBuildTools;
       mingwDevPackages = commonBuildTools ++ [
-        pkgsCross.mingwW64.stdenv.cc
+        pkgsFor.pkgsCross.mingwW64.stdenv.cc
       ];
-      gbaDevPackages = with pkgsFor; [
-        devkitNix.devkitARM
+      gbaDevPackages = [
+        pkgsFor.devkitNix.devkitARM
       ] ++ commonBuildTools;
       offlineDevPackages = lib.unique (
         nativeDevPackages
@@ -252,7 +252,7 @@
           services.xserver.enable = true;
           services.displayManager.defaultSession = "xfce";
           services.xserver.displayManager.lightdm.enable = true;
-          services.xserver.displayManager.lightdm.greeters.tiny.enable = true;
+          services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
 
           services.picom = {

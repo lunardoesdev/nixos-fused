@@ -131,7 +131,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - The Disko image output is named `myhost.raw` and defaults to `10G`.
 - The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
 - The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.
-- The config is still intentionally restrained: docs are disabled, printing and audio are off, locales are limited to `en_US.UTF-8`, and the desktop stack is Xfce with the tiny LightDM greeter plus `picom`.
+- The config is still intentionally restrained: docs are disabled, printing and audio are off, locales are limited to `en_US.UTF-8`, and the desktop stack is Xfce with the LightDM GTK greeter plus `picom`.
 - Nix remains enabled inside the installed image, so the system is rebuildable with `nixos-rebuild`.
 - A 1 MiB swapfile is declared via `swapDevices`, not via Disko.
 - `flake.nix` includes commented examples for initrd keyfile-based auto-unlock, but the default boot behavior is still interactive passphrase entry.
