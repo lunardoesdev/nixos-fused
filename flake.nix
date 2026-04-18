@@ -322,6 +322,15 @@
           networking.hostName = lib.mkForce cfg.isoConfigName;
           isoImage.configurationName = cfg.isoConfigName;
           isoImage.appendToMenuLabel = " ${cfg.hostName} installer";
+          services.getty.autologinUser = lib.mkForce null;
+          services.getty.helpLine = lib.mkForce ''
+            This installer ISO does not auto-login.
+
+            Log in with the configured local account or as root using the
+            passwords from secrets.toml.
+
+            To set up a wireless connection, run `nmtui`.
+          '';
 
           # installation-device.nix seeds empty initial password hashes for the
           # live ISO accounts. That collides with our explicit plain-text
