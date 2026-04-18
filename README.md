@@ -52,6 +52,12 @@ Enter the native C/C++ development shell:
 nix develop path:.#native
 ```
 
+Enter the `hello` package development shell derived from the package itself:
+
+```bash
+nix develop path:.#hello
+```
+
 Enter the MinGW cross-compilation shell:
 
 ```bash

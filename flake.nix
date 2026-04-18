@@ -547,6 +547,10 @@
           packages = nativeDevPackages;
         };
 
+        hello = pkgsFor.mkShell {
+          inputsFrom = [ pkgsFor.hello ];
+        };
+
         mingw = pkgsFor.mkShell {
           packages = mingwDevPackages;
         };
