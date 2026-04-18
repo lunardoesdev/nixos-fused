@@ -12,7 +12,6 @@ cp secrets.toml.example secrets.toml
 
 Edit `secrets.toml` and set:
 
-- `disk_device`
 - `user_name`
 - `user_password`
 - `root_password`
