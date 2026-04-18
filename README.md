@@ -12,12 +12,6 @@ Build the system:
 sudo nix build .#nixosConfigurations.myhost.config.system.build.toplevel
 ```
 
-Build the standard NixOS image output:
-
-```bash
-sudo nix build .#nixosConfigurations.myhost.config.system.build.images.qemu-efi
-```
-
 Build the Disko image builder script:
 
 ```bash
@@ -54,6 +48,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake .#myhost
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a Btrfs root partition.
 - Limine is configured for both EFI and BIOS installs.
 - The Disko image output is named `myhost.raw` and defaults to `8G`.
+- The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.
 - The config is intentionally small: docs are disabled, default packages are empty, and audio/printing/udisks are disabled.
 - A 1 MiB swapfile is declared via `swapDevices`, not via Disko.
 - The default user is `nixos`.
