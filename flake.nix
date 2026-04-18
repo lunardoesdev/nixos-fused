@@ -11,6 +11,7 @@
     { self, disko, nixpkgs, ... }:
     let
       lib = nixpkgs.lib;
+      makeIsoImagePath = nixpkgs + "/nixos/lib/make-iso9660-image.nix";
       secretsFile = builtins.toString ./. + "/secrets.toml";
       rawSecrets =
         if builtins.pathExists secretsFile then
@@ -128,6 +129,37 @@
           };
         };
       diskConfig = diskLayout { };
+      isoGrubModules = [
+        "fat"
+        "iso9660"
+        "part_gpt"
+        "part_msdos"
+        "normal"
+        "boot"
+        "linux"
+        "configfile"
+        "loopback"
+        "chain"
+        "halt"
+        "efifwsetup"
+        "efi_gop"
+        "ls"
+        "search"
+        "search_label"
+        "search_fs_uuid"
+        "search_fs_file"
+        "echo"
+        "serial"
+        "gfxmenu"
+        "gfxterm"
+        "gfxterm_background"
+        "gfxterm_menu"
+        "test"
+        "loadenv"
+        "all_video"
+        "videoinfo"
+        "png"
+      ];
       commonModule =
         { lib, ... }:
         {
@@ -168,18 +200,31 @@
           system.stateVersion = cfg.stateVersion;
         };
       installedSystemModule =
-        { config, lib, ... }:
+        { config, lib, pkgs, ... }:
+        let
+          liminePackage = pkgs.limine.override {
+            targets = [
+              "x86_64"
+              "i686"
+            ];
+          };
+        in
         {
           boot.loader.grub.enable = false;
           boot.loader.systemd-boot.enable = lib.mkForce false;
           boot.loader.efi.canTouchEfiVariables = false;
           boot.loader.limine = {
             enable = true;
+            package = liminePackage;
             efiSupport = true;
             efiInstallAsRemovable = true;
             biosSupport = true;
             biosDevice = config.disko.devices.disk.main.device;
             partitionIndex = 1;
+            # Install an IA32 fallback loader next to the normal x86_64
+            # removable-path binary so 32-bit UEFI firmware can boot too.
+            additionalFiles."../efi/boot/BOOTIA32.EFI" =
+              "${liminePackage}/share/limine/BOOTIA32.EFI";
           };
           # Interactive passphrase entry is the default because the Disko
           # LUKS device above does not define an initrd key file.
@@ -192,11 +237,137 @@
           #   "/crypto_keyfile.bin";
         };
       isoSystemModule =
-        { lib, ... }:
+        { config, lib, pkgs, ... }:
+        let
+          findIsoContentSource =
+            target:
+            let
+              matches = builtins.filter (entry: entry.target == target) config.isoImage.contents;
+            in
+            if matches == [ ] then
+              throw "Could not find ${target} in isoImage.contents while adding BOOTIA32.EFI support."
+            else
+              (builtins.head matches).source;
+
+          originalEfiDir = findIsoContentSource "/EFI";
+          ia32GrubPkgs = pkgs.pkgsi686Linux;
+          ia32BootEfi =
+            pkgs.runCommand "bootia32-efi"
+              {
+                nativeBuildInputs = [ ia32GrubPkgs.grub2_efi ];
+                strictDeps = true;
+              }
+              ''
+            mkdir -p $out
+
+            MODULES=(${lib.concatStringsSep " " (map lib.escapeShellArg isoGrubModules)})
+
+            for mod in efi_uga; do
+              if [ -f ${ia32GrubPkgs.grub2_efi}/lib/grub/${ia32GrubPkgs.grub2_efi.grubTarget}/$mod.mod ]; then
+                MODULES+=("$mod")
+              fi
+            done
+
+            grub-mkimage \
+              --directory=${ia32GrubPkgs.grub2_efi}/lib/grub/${ia32GrubPkgs.grub2_efi.grubTarget} \
+              -o $out/BOOTIA32.EFI \
+              -p /EFI/BOOT \
+              -O ${ia32GrubPkgs.grub2_efi.grubTarget} \
+              ''${MODULES[@]}
+          '';
+          augmentedEfiDir = pkgs.runCommand "efi-directory-with-bootia32" { } ''
+            mkdir -p $out
+            cp -rp ${originalEfiDir}/. $out/
+            chmod -R u+w $out
+            cp ${ia32BootEfi}/BOOTIA32.EFI $out/BOOT/BOOTIA32.EFI
+          '';
+          augmentedEfiImg =
+            pkgs.runCommand "efi-image-eltorito-with-bootia32"
+              {
+                nativeBuildInputs = [
+                  pkgs.buildPackages.mtools
+                  pkgs.buildPackages.libfaketime
+                  pkgs.buildPackages.dosfstools
+                ];
+                strictDeps = true;
+              }
+              ''
+                mkdir ./contents && cd ./contents
+                cp -rp ${augmentedEfiDir}/. ./EFI
+
+                find . -exec touch --date=2000-01-01 {} +
+
+                usage_size=$(( $(du -s --block-size=1M --apparent-size . | tr -cd '[:digit:]') * 1024 * 1024 ))
+                image_size=$(( ($usage_size * 110) / 100 ))
+                block_size=$((1024*1024))
+                image_size=$(( ($image_size / $block_size + 1) * $block_size ))
+                truncate --size=$image_size "$out"
+                mkfs.vfat --invariant -i 12345678 -n EFIBOOT "$out"
+
+                for d in $(find EFI -type d | sort); do
+                  faketime "2000-01-01 00:00:00" mmd -i "$out" "::/$d"
+                done
+
+                for f in $(find EFI -type f | sort); do
+                  mcopy -pvm -i "$out" "$f" "::/$f"
+                done
+
+                fsck.vfat -vn "$out"
+              '';
+          isoContentsWithoutDefaultEfi = builtins.filter (
+            entry: !(builtins.elem entry.target [ "/EFI" "/boot/efi.img" ])
+          ) config.isoImage.contents;
+        in
         {
           networking.hostName = lib.mkForce cfg.isoConfigName;
           isoImage.configurationName = cfg.isoConfigName;
           isoImage.appendToMenuLabel = " ${cfg.hostName} installer";
+
+          # installation-device.nix seeds empty initial password hashes for the
+          # live ISO accounts. That collides with our explicit plain-text
+          # passwords and triggers noisy precedence warnings during evaluation.
+          users.users = lib.mkMerge [
+            {
+              root.initialHashedPassword = lib.mkForce null;
+              root.hashedPassword = lib.mkForce null;
+            }
+            (lib.mkIf (cfg.user.name == "nixos") {
+              nixos.initialHashedPassword = lib.mkForce null;
+              nixos.hashedPassword = lib.mkForce null;
+            })
+          ];
+
+          system.build.isoImage = lib.mkForce (
+            pkgs.callPackage makeIsoImagePath (
+              {
+                inherit (config.isoImage) compressImage volumeID;
+                contents = isoContentsWithoutDefaultEfi ++ [
+                  {
+                    source = augmentedEfiDir;
+                    target = "/EFI";
+                  }
+                  {
+                    source = augmentedEfiImg;
+                    target = "/boot/efi.img";
+                  }
+                ];
+                isoName = "${config.image.baseName}.iso";
+                bootable = config.isoImage.makeBiosBootable;
+                bootImage = "/isolinux/isolinux.bin";
+                syslinux = if config.isoImage.makeBiosBootable then pkgs.syslinux else null;
+                squashfsContents = config.isoImage.storeContents;
+                squashfsCompression = config.isoImage.squashfsCompression;
+              }
+              // lib.optionalAttrs (config.isoImage.makeUsbBootable && config.isoImage.makeBiosBootable) {
+                usbBootable = true;
+                isohybridMbrImage = "${pkgs.syslinux}/share/syslinux/isohdpfx.bin";
+              }
+              // lib.optionalAttrs config.isoImage.makeEfiBootable {
+                efiBootable = true;
+                efiBootImage = "boot/efi.img";
+              }
+            )
+          );
         };
     in
     {

@@ -98,7 +98,9 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - The Disko layout is defined directly in `flake.nix`.
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition.
 - Limine is configured for both EFI and BIOS installs.
+- The installed system writes both `BOOTX64.EFI` and `BOOTIA32.EFI` to the removable EFI boot path, so x86_64 and IA32 UEFI firmware can both find Limine.
 - `path:.#iso` builds installer/live media using the same base settings from this flake, with installer-specific overrides layered on top. It is not your installed target filesystem image.
+- The ISO also carries both `BOOTX64.EFI` and `BOOTIA32.EFI` in its EFI payload.
 - `/boot` stays unencrypted so Limine can load the kernel and initrd, and the initrd then prompts for the LUKS passphrase to unlock `/`.
 - The Disko image output is named `myhost.raw` and defaults to `10G`.
 - The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
