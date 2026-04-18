@@ -93,6 +93,8 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 ## Notes
 
 - The main tunables live near the top of `flake.nix` in the `cfg` attrset: host name, disk/image settings, locale, LUKS name, swap size, and default user settings.
+- Home Manager is wired in through the NixOS module, so `nixos-rebuild` builds the system and both home configurations together.
+- `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
 - `secrets.toml.example` is the template. Copy it to `secrets.toml` before building.
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
@@ -122,7 +124,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 Update pinned inputs:
 
 ```bash
-sudo nix flake lock --update-input nixpkgs --update-input disko
+sudo nix flake lock --update-input nixpkgs --update-input disko --update-input home-manager
 ```
 
 Review pinned versions:

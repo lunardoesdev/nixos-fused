@@ -5,10 +5,18 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     disko.url = "github:nix-community/disko/latest";
     disko.inputs.nixpkgs.follows = "nixpkgs";
+    home-manager.url = "github:nix-community/home-manager";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
-    { self, disko, nixpkgs, ... }:
+    {
+      self,
+      disko,
+      nixpkgs,
+      home-manager,
+      ...
+    }:
     let
       lib = nixpkgs.lib;
       makeIsoImagePath = nixpkgs + "/nixos/lib/make-iso9660-image.nix";
@@ -199,6 +207,55 @@
 
           system.stateVersion = cfg.stateVersion;
         };
+      homeManagerCommonModule =
+        {
+          pkgs,
+          lib,
+          ...
+        }:
+        {
+          home.stateVersion = cfg.stateVersion;
+          programs.home-manager.enable = true;
+
+          home.sessionVariables = {
+            EDITOR = lib.mkDefault "${pkgs.nano}/bin/nano";
+            VISUAL = lib.mkDefault "${pkgs.nano}/bin/nano";
+          };
+        };
+      homeManagerRootModule = { ... }: { };
+      homeManagerUserModule = { ... }: { };
+      mkHomeManagerModule =
+        {
+          userName,
+          homeDirectory,
+          extraModules ? [ ],
+        }:
+        {
+          imports = [ homeManagerCommonModule ] ++ extraModules;
+          home.username = userName;
+          home.homeDirectory = homeDirectory;
+        };
+      homeManagerModule =
+        { ... }:
+        {
+          imports = [ home-manager.nixosModules.home-manager ];
+
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.extraSpecialArgs = { inherit cfg; };
+
+          home-manager.users.root = mkHomeManagerModule {
+            userName = "root";
+            homeDirectory = "/root";
+            extraModules = [ homeManagerRootModule ];
+          };
+
+          home-manager.users.${cfg.user.name} = mkHomeManagerModule {
+            userName = cfg.user.name;
+            homeDirectory = "/home/${cfg.user.name}";
+            extraModules = [ homeManagerUserModule ];
+          };
+        };
       installedSystemModule =
         { config, lib, pkgs, ... }:
         let
@@ -388,6 +445,7 @@
           disko.nixosModules.disko
           diskConfig
           commonModule
+          homeManagerModule
           installedSystemModule
         ];
       };
@@ -397,6 +455,7 @@
         modules = [
           (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal-new-kernel-no-zfs.nix")
           commonModule
+          homeManagerModule
           isoSystemModule
         ];
       };
