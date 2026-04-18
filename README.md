@@ -44,12 +44,14 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake .#myhost
 
 ## Notes
 
-- The Disko layout lives in `./disko.nix`.
+- The Disko layout is defined directly in `flake.nix`.
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a Btrfs root partition.
 - Limine is configured for both EFI and BIOS installs.
-- The Disko image output is named `myhost.raw` and defaults to `8G`.
+- The Disko image output is named `myhost.raw` and defaults to `3G`.
+- The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
 - The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.
-- The config is intentionally small: docs are disabled, default packages are empty, and audio/printing/udisks are disabled.
+- The config is intentionally small: docs are disabled, audio/printing/udisks are disabled, polkit is off, and locales are limited to `en_US.UTF-8`.
+- Nix remains enabled inside the installed image, so the system is rebuildable with `nixos-rebuild`.
 - A 1 MiB swapfile is declared via `swapDevices`, not via Disko.
 - The default user is `nixos`.
 - If `./secrets/nixos-password.hash` exists, it is used via `hashedPasswordFile`.
