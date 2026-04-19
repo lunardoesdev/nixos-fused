@@ -85,7 +85,7 @@
           # or nixos-anywhere deployments. Normal rebuilds do not repartition.
           device = lib.attrByPath [ "install" "disk_device" ] "/dev/vda" rawSecrets;
           imageName = hostName;
-          imageSize = "10G";
+          imageSize = "25G";
           efiSize = "512M";
         };
 
@@ -159,6 +159,7 @@
       diskConfig = diskLayout { };
       serverDiskConfig = diskLayout {
         luksKeyFile = serverLuksKeyFile;
+        imageSize = "5G";
       };
       isoGrubModules = [
         "fat"
