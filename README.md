@@ -514,7 +514,7 @@ $NES_EMULATOR ./hello.nes
 - `secrets.toml.example` is the template. Copy it to `secrets.toml` before building.
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
-- The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition.
+- The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition mounted with `compress=zstd:15`.
 - Limine is configured for both EFI and BIOS installs.
 - The installed system writes both `BOOTX64.EFI` and `BOOTIA32.EFI` to the removable EFI boot path, so x86_64 and IA32 UEFI firmware can both find Limine.
 - `path:.#nixosConfigurations.myhost-installer.config.system.build.isoImage` builds installer/live media using the same base settings from this flake, with installer-specific overrides layered on top. It is not your installed target filesystem image.

@@ -85,8 +85,11 @@
           # or nixos-anywhere deployments. Normal rebuilds do not repartition.
           device = lib.attrByPath [ "install" "disk_device" ] "/dev/vda" rawSecrets;
           imageName = hostName;
-          imageSize = "25G";
+          imageSize = "50G";
           efiSize = "512M";
+        };
+        btrfs = {
+          compression = "zstd:15";
         };
 
         luks = {
@@ -145,6 +148,7 @@
                         content = {
                           type = "btrfs";
                           mountpoint = "/";
+                          mountOptions = [ "compress=${cfg.btrfs.compression}" ];
                         };
                       }
                       // lib.optionalAttrs (luksPasswordFile != null) {
