@@ -230,7 +230,6 @@
       armEmbeddedPrefix = "arm-none-eabi-";
       avrCrossCc = pkgsFor.pkgsCross.avr.stdenv.cc;
       avrPrefix = avrCrossCc.targetPrefix;
-      dosTarget = "i586-pc-msdosdjgpp";
       rpiCrossCc = pkgsFor.pkgsCross.aarch64-multiplatform.stdenv.cc;
       rpiCrossPrefix = rpiCrossCc.targetPrefix;
       mingwShellHook = ''
@@ -299,16 +298,10 @@
         export QEMU_SYSTEM_AARCH64="${pkgsFor.qemu_full}/bin/qemu-system-aarch64"
       '';
       dosShellHook = ''
-        export DJDIR="${pkgsFor.djgpp}"
-        export DJGPP_TARGET="${dosTarget}"
-        export CROSS_COMPILE="${dosTarget}-"
-        export PATH="$DJDIR/${dosTarget}/bin:$PATH"
-        export CC="$DJDIR/${dosTarget}/bin/${dosTarget}-gcc"
-        export CXX="$DJDIR/${dosTarget}/bin/${dosTarget}-g++"
-        export AR="$DJDIR/${dosTarget}/bin/${dosTarget}-ar"
-        export LD="$DJDIR/${dosTarget}/bin/${dosTarget}-ld"
-        export OBJCOPY="$DJDIR/${dosTarget}/bin/${dosTarget}-objcopy"
-        export OBJDUMP="$DJDIR/${dosTarget}/bin/${dosTarget}-objdump"
+        export CC="${pkgsFor.open-watcom-v2}/bin/wcl"
+        export CXX="${pkgsFor.open-watcom-v2}/bin/wcl386"
+        export WLINK="${pkgsFor.open-watcom-v2}/bin/wlink"
+        export WASM="${pkgsFor.open-watcom-v2}/bin/wasm"
         export DOSBOX="${pkgsFor."dosbox-staging"}/bin/dosbox"
       '';
       nativeDevPackages = with pkgsFor; [
@@ -387,15 +380,18 @@
         rpiCrossCc
       ] ++ commonBuildTools;
       dosDevPackages = with pkgsFor; [
-        djgpp
+        open-watcom-v2
         pkgsFor."dosbox-staging"
       ] ++ commonBuildTools;
+      z88dkPackage = pkgsFor.z88dk.overrideAttrs (old: {
+        hardeningDisable = (old.hardeningDisable or [ ]) ++ [ "fortify" ];
+      });
       z88dkDevPackages = with pkgsFor; [
         python3
-        z88dk
+        z88dkPackage
       ] ++ commonBuildTools;
       z88dkShellHook = ''
-        export Z88DK_ROOT="${pkgsFor.z88dk}"
+        export Z88DK_ROOT="${z88dkPackage}"
       '';
       nesDevPackages = with pkgsFor; [
         cc65
