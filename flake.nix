@@ -225,6 +225,91 @@
       androidBuildToolsPath = "${androidSdkRoot}/build-tools/${androidToolchain.buildTools}";
       androidNdkBundleRoot = "${androidSdkRoot}/ndk-bundle";
       androidNdkRoot = "${androidSdkRoot}/ndk/${androidToolchain.ndk}";
+      mingwCrossCc = pkgsFor.pkgsCross.mingwW64.stdenv.cc;
+      mingwPrefix = mingwCrossCc.targetPrefix;
+      armEmbeddedPrefix = "arm-none-eabi-";
+      avrPrefix = "avr-";
+      dosTarget = "i586-pc-msdosdjgpp";
+      rpiCrossCc = pkgsFor.pkgsCross.aarch64-multiplatform.stdenv.cc;
+      rpiCrossPrefix = rpiCrossCc.targetPrefix;
+      mingwShellHook = ''
+        export CROSS_COMPILE="${mingwPrefix}"
+        export CC="${mingwCrossCc}/bin/${mingwPrefix}gcc"
+        export CXX="${mingwCrossCc}/bin/${mingwPrefix}g++"
+        export AR="${mingwCrossCc}/bin/${mingwPrefix}ar"
+        export LD="${mingwCrossCc}/bin/${mingwPrefix}ld"
+        export OBJCOPY="${mingwCrossCc}/bin/${mingwPrefix}objcopy"
+        export STRIP="${mingwCrossCc}/bin/${mingwPrefix}strip"
+        export WINE="${pkgsFor.wine}/bin/wine"
+      '';
+      armEmbeddedShellHook = ''
+        export CROSS_COMPILE="${armEmbeddedPrefix}"
+        export CC="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}gcc"
+        export CXX="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}g++"
+        export AS="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}as"
+        export AR="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}ar"
+        export LD="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}ld"
+        export OBJCOPY="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}objcopy"
+        export OBJDUMP="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}objdump"
+        export SIZE="${pkgsFor."gcc-arm-embedded"}/bin/${armEmbeddedPrefix}size"
+        export GDB="${pkgsFor.gdb}/bin/gdb"
+        export QEMU_SYSTEM_ARM="${pkgsFor.qemu_full}/bin/qemu-system-arm"
+        export OPENOCD="${pkgsFor.openocd}/bin/openocd"
+      '';
+      gbaShellHook = ''
+        export MGBA="${pkgsFor.mgba}/bin/mgba"
+      '';
+      firmwareShellHook = ''
+        export LLD="${pkgsFor.llvmPackages.lld}/bin/ld.lld"
+        export QEMU_SYSTEM_X86_64="${pkgsFor.qemu_full}/bin/qemu-system-x86_64"
+        export OVMF_CODE="${pkgsFor.OVMF.fd}/FV/OVMF_CODE.fd"
+        export OVMF_VARS_TEMPLATE="${pkgsFor.OVMF.fd}/FV/OVMF_VARS.fd"
+        export ESPTOOL="${pkgsFor.esptool}/bin/esptool"
+        export ESPFLASH="${pkgsFor.espflash}/bin/espflash"
+      '';
+      stm32ShellHook = armEmbeddedShellHook + ''
+        export STFLASH="${pkgsFor.stlink}/bin/st-flash"
+        export STM32FLASH="${pkgsFor.stm32flash}/bin/stm32flash"
+      '';
+      avrShellHook = ''
+        export CROSS_COMPILE="${avrPrefix}"
+        export CC="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}gcc"
+        export CXX="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}g++"
+        export AS="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}as"
+        export AR="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}ar"
+        export LD="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}ld"
+        export OBJCOPY="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}objcopy"
+        export OBJDUMP="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}objdump"
+        export SIZE="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}size"
+        export AVRDUDE="${pkgsFor.avrdude}/bin/avrdude"
+        export SIMAVR="${pkgsFor.simavr}/bin/simavr"
+      '';
+      rpiShellHook = ''
+        export CROSS_COMPILE="${rpiCrossPrefix}"
+        export CC="${rpiCrossCc}/bin/${rpiCrossPrefix}gcc"
+        export CXX="${rpiCrossCc}/bin/${rpiCrossPrefix}g++"
+        export AS="${rpiCrossCc}/bin/${rpiCrossPrefix}as"
+        export AR="${rpiCrossCc}/bin/${rpiCrossPrefix}ar"
+        export LD="${rpiCrossCc}/bin/${rpiCrossPrefix}ld"
+        export OBJCOPY="${rpiCrossCc}/bin/${rpiCrossPrefix}objcopy"
+        export OBJDUMP="${rpiCrossCc}/bin/${rpiCrossPrefix}objdump"
+        export STRIP="${rpiCrossCc}/bin/${rpiCrossPrefix}strip"
+        export QEMU_AARCH64="${pkgsFor.qemu_full}/bin/qemu-aarch64"
+        export QEMU_SYSTEM_AARCH64="${pkgsFor.qemu_full}/bin/qemu-system-aarch64"
+      '';
+      dosShellHook = ''
+        export DJDIR="${pkgsFor.djgpp}"
+        export DJGPP_TARGET="${dosTarget}"
+        export CROSS_COMPILE="${dosTarget}-"
+        export PATH="$DJDIR/${dosTarget}/bin:$PATH"
+        export CC="$DJDIR/${dosTarget}/bin/${dosTarget}-gcc"
+        export CXX="$DJDIR/${dosTarget}/bin/${dosTarget}-g++"
+        export AR="$DJDIR/${dosTarget}/bin/${dosTarget}-ar"
+        export LD="$DJDIR/${dosTarget}/bin/${dosTarget}-ld"
+        export OBJCOPY="$DJDIR/${dosTarget}/bin/${dosTarget}-objcopy"
+        export OBJDUMP="$DJDIR/${dosTarget}/bin/${dosTarget}-objdump"
+        export DOSBOX="${pkgsFor."dosbox-staging"}/bin/dosbox"
+      '';
       nativeDevPackages = with pkgsFor; [
         gcc
         clang
@@ -251,11 +336,86 @@
         jdk17
         zip
       ] ++ commonBuildTools;
+      webDevPackages = with pkgsFor; [
+        bun
+        deno
+        go
+        nodejs
+      ] ++ commonBuildTools;
+      embeddedDevPackages = with pkgsFor; [
+        "gcc-arm-embedded"
+        gdb
+        openocd
+        python3
+        qemu_full
+      ] ++ commonBuildTools;
+      firmwareDevPackages = with pkgsFor; [
+        clang
+        esptool
+        espflash
+        gdb
+        llvmPackages.lld
+        mtools
+        dosfstools
+        nasm
+        OVMF
+        python3
+        qemu_full
+      ] ++ commonBuildTools;
+      stm32DevPackages = with pkgsFor; [
+        "gcc-arm-embedded"
+        gdb
+        openocd
+        python3
+        qemu_full
+        stlink
+        stm32flash
+      ] ++ commonBuildTools;
+      avrDevPackages = with pkgsFor; [
+        avrdude
+        gdb
+        pkgsCross.avr.buildPackages.gcc
+        pkgsCross.avr.libc
+        python3
+        simavr
+      ] ++ commonBuildTools;
+      rpiDevPackages = with pkgsFor; [
+        dtc
+        python3
+        qemu_full
+        rpiCrossCc
+      ] ++ commonBuildTools;
+      dosDevPackages = with pkgsFor; [
+        djgpp
+        "dosbox-staging"
+      ] ++ commonBuildTools;
+      z88dkDevPackages = with pkgsFor; [
+        python3
+        z88dk
+      ] ++ commonBuildTools;
+      z88dkShellHook = ''
+        export Z88DK_ROOT="${pkgsFor.z88dk}"
+      '';
+      nesDevPackages = with pkgsFor; [
+        cc65
+      ] ++ commonBuildTools;
+      nesShellHook = ''
+        export NES_EMULATOR="${pkgsFor.fceux}/bin/fceux"
+      '';
       offlineDevPackages = lib.unique (
         nativeDevPackages
         ++ mingwDevPackages
         ++ gbaDevPackages
         ++ androidDevPackages
+        ++ webDevPackages
+        ++ embeddedDevPackages
+        ++ firmwareDevPackages
+        ++ stm32DevPackages
+        ++ avrDevPackages
+        ++ rpiDevPackages
+        ++ dosDevPackages
+        ++ z88dkDevPackages
+        ++ nesDevPackages
       );
       commonAppPackages = [
         pkgsFor."adwaita-icon-theme"
@@ -882,6 +1042,7 @@
 
         mingw = pkgsFor.mkShell {
           packages = mingwDevPackages;
+          shellHook = mingwShellHook;
         };
 
         android = pkgsFor.mkShell {
@@ -903,7 +1064,52 @@
         };
 
         gba = pkgsFor.mkShell.override { stdenv = pkgsFor.devkitNix.stdenvARM; } {
-          packages = commonBuildTools;
+          packages = gbaDevPackages;
+          shellHook = gbaShellHook;
+        };
+
+        web = pkgsFor.mkShell {
+          packages = webDevPackages;
+        };
+
+        embedded = pkgsFor.mkShell {
+          packages = embeddedDevPackages;
+          shellHook = armEmbeddedShellHook;
+        };
+
+        firmware = pkgsFor.mkShell {
+          packages = firmwareDevPackages;
+          shellHook = firmwareShellHook;
+        };
+
+        stm32 = pkgsFor.mkShell {
+          packages = stm32DevPackages;
+          shellHook = stm32ShellHook;
+        };
+
+        avr = pkgsFor.mkShell {
+          packages = avrDevPackages;
+          shellHook = avrShellHook;
+        };
+
+        rpi = pkgsFor.mkShell {
+          packages = rpiDevPackages;
+          shellHook = rpiShellHook;
+        };
+
+        dos = pkgsFor.mkShell {
+          packages = dosDevPackages;
+          shellHook = dosShellHook;
+        };
+
+        z88dk = pkgsFor.mkShell {
+          packages = z88dkDevPackages;
+          shellHook = z88dkShellHook;
+        };
+
+        nes = pkgsFor.mkShell {
+          packages = nesDevPackages;
+          shellHook = nesShellHook;
         };
       };
     };

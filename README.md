@@ -52,37 +52,14 @@ Build the minimal server system:
 sudo nix build path:.#nixosConfigurations.myhost-server.config.system.build.toplevel
 ```
 
-Enter the native development shell with GCC, Clang, Rust, Go, Zig, Python,
-SDL3, and the common build/debug tools:
+Enter any development shell:
 
 ```bash
-nix develop path:.#native
+nix develop path:.#<shell-name>
 ```
 
-Enter the Android development shell with a pinned Android SDK, NDK, CMake,
-Gradle, JDK 17, and the environment variables needed for command-line builds:
-
-```bash
-nix develop path:.#android
-```
-
-Enter the `hello` package development shell derived from the package itself:
-
-```bash
-nix develop path:.#hello
-```
-
-Enter the MinGW cross-compilation shell:
-
-```bash
-nix develop path:.#mingw
-```
-
-Enter the Game Boy Advance shell with `devkitARM`:
-
-```bash
-nix develop path:.#gba
-```
+See the dedicated Dev Shells section below for the available shell names and
+their platform-specific workflows.
 
 Build the bundled minimal offline Android example APK:
 
@@ -160,6 +137,379 @@ Install to a real disk with `disko-install`:
 sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#myhost --disk main /dev/sdX
 ```
 
+## Dev Shells
+
+All shells are entered with `nix develop path:.#<shell-name>`. The desktop
+profile and installer ISO also carry these toolchains in their system closure
+so they remain available offline after installation. The `web` shell includes
+`nodejs`, which already provides `npm`.
+
+### `native`
+
+Use this for ordinary Linux-hosted C, C++, Rust, Go, Zig, Python, and SDL3
+development.
+
+Start it with:
+
+```bash
+nix develop path:.#native
+```
+
+Typical development and test loop:
+
+```bash
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+For language-specific projects, the same shell also covers common loops such
+as `cargo test`, `go test ./...`, `meson test -C build`, or `python -m pytest`.
+
+### `hello`
+
+This shell is derived from `pkgs.hello` and is mainly a minimal example of an
+input-driven shell. Use it when you want to inspect how package-provided shell
+metadata behaves.
+
+Start it with:
+
+```bash
+nix develop path:.#hello
+```
+
+Quick smoke test:
+
+```bash
+hello --version
+```
+
+### `web`
+
+Use this for web stacks that need Bun, Deno, Go, Node.js, and `npm`.
+
+Start it with:
+
+```bash
+nix develop path:.#web
+```
+
+Typical development loops:
+
+```bash
+npm install
+npm test
+```
+
+```bash
+bun install
+bun test
+```
+
+```bash
+deno task start
+deno test
+```
+
+```bash
+go test ./...
+```
+
+### `mingw`
+
+Use this to cross-build Windows executables from Linux. The shell exports
+`CC`, `CXX`, `AR`, `LD`, `OBJCOPY`, `STRIP`, and `WINE`.
+
+Start it with:
+
+```bash
+nix develop path:.#mingw
+```
+
+Build and smoke-test a Windows executable:
+
+```bash
+$CC hello.c -o hello.exe
+$WINE ./hello.exe
+```
+
+### `gba`
+
+Use this for Game Boy Advance homebrew projects built around `devkitARM`.
+The shell swaps the stdenv to the `devkitNix` ARM toolchain and exports
+`MGBA` for emulator-based testing.
+
+Start it with:
+
+```bash
+nix develop path:.#gba
+```
+
+Typical loop for existing devkitARM-style projects:
+
+```bash
+make
+$MGBA ./build/game.gba
+```
+
+### `android`
+
+Use this for offline Android command-line builds with a pinned SDK, NDK,
+CMake, Gradle, and JDK 17. The shell exports `ANDROID_SDK_ROOT`,
+`ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`,
+`ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`,
+`ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
+
+Start it with:
+
+```bash
+nix develop path:.#android
+```
+
+The bundled sample project builds entirely offline:
+
+```bash
+cd examples/android-minimal-gradle
+gradle assembleDebug
+gradle verifyDebug
+```
+
+For your own projects, keep Gradle dependencies vendored or pre-fetched if you
+need truly offline builds.
+
+### `embedded`
+
+Use this for generic ARM Cortex-M style bare-metal bring-up, OpenOCD work, and
+QEMU-based smoke tests. The shell exports `CC`, `CXX`, `AS`, `AR`, `LD`,
+`OBJCOPY`, `OBJDUMP`, `SIZE`, `GDB`, `OPENOCD`, and `QEMU_SYSTEM_ARM`.
+
+Start it with:
+
+```bash
+nix develop path:.#embedded
+```
+
+Minimal semihosted QEMU loop:
+
+```c
+#include <stdio.h>
+
+int main(void) {
+  puts("hello from cortex-m");
+  return 0;
+}
+```
+
+```bash
+$CC -mcpu=cortex-m3 -mthumb --specs=rdimon.specs hello.c -o hello.elf -lc -lrdimon
+$QEMU_SYSTEM_ARM -M lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel hello.elf
+```
+
+For hardware, replace the QEMU step with your board-specific OpenOCD flash and
+GDB session.
+
+### `firmware`
+
+Use this shell for ESP flashing, BIOS-style freestanding experiments, and UEFI
+bring-up. It includes `clang`, `ld.lld`, `nasm`, `OVMF`, `mtools`,
+`dosfstools`, `esptool`, `espflash`, and QEMU. The shell exports `LLD`,
+`QEMU_SYSTEM_X86_64`, `OVMF_CODE`, `OVMF_VARS_TEMPLATE`, `ESPTOOL`, and
+`ESPFLASH`.
+
+Start it with:
+
+```bash
+nix develop path:.#firmware
+```
+
+Quick freestanding BIOS test with a boot sector:
+
+```asm
+bits 16
+org 0x7c00
+
+start:
+  mov ah, 0x0e
+  mov si, msg
+
+.loop:
+  lodsb
+  test al, al
+  jz .done
+  int 0x10
+  jmp .loop
+
+.done:
+  cli
+  hlt
+
+msg db 'hello from firmware', 0
+times 510-($-$$) db 0
+dw 0xaa55
+```
+
+```bash
+nasm -f bin boot.asm -o boot.img
+$QEMU_SYSTEM_X86_64 -m 256 -drive format=raw,file=boot.img
+```
+
+Quick UEFI test if you already have a `BOOTX64.EFI` binary:
+
+```bash
+truncate -s 64M esp.img
+mkfs.vfat esp.img
+mmd -i esp.img ::/EFI ::/EFI/BOOT
+mcopy -i esp.img BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
+cp "$OVMF_VARS_TEMPLATE" OVMF_VARS.fd
+$QEMU_SYSTEM_X86_64 \
+  -m 256 \
+  -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+  -drive if=pflash,format=raw,file=OVMF_VARS.fd \
+  -drive format=raw,file=esp.img
+```
+
+For ESP hardware, flash directly from the shell:
+
+```bash
+$ESPFLASH flash --monitor /dev/ttyUSB0 build/firmware.bin
+```
+
+### `stm32`
+
+Use this shell for STM32-family Cortex-M work. It layers STM32 flashing tools
+on top of the generic ARM embedded shell and exports `STFLASH` and
+`STM32FLASH` in addition to the generic embedded variables.
+
+Start it with:
+
+```bash
+nix develop path:.#stm32
+```
+
+Build and smoke-test a semihosted STM32-targeted binary in QEMU:
+
+```bash
+$CC -mcpu=cortex-m3 -mthumb --specs=rdimon.specs hello.c -o hello.elf -lc -lrdimon
+$QEMU_SYSTEM_ARM -M stm32vldiscovery -nographic -semihosting-config enable=on,target=native -kernel hello.elf
+```
+
+For hardware flashing:
+
+```bash
+$STFLASH write build/firmware.bin 0x8000000
+```
+
+or:
+
+```bash
+$STM32FLASH /dev/ttyUSB0 -w build/firmware.bin
+```
+
+### `avr`
+
+Use this shell for AVR microcontrollers such as ATmega328P. The shell exports
+the usual AVR binutils plus `AVRDUDE` and `SIMAVR`.
+
+Start it with:
+
+```bash
+nix develop path:.#avr
+```
+
+Build and simulate a simple AVR program:
+
+```bash
+$CC -mmcu=atmega328p -Os blink.c -o blink.elf
+$OBJCOPY -O ihex blink.elf blink.hex
+$SIMAVR -m atmega328p -f 16000000 blink.elf
+```
+
+For hardware flashing:
+
+```bash
+$AVRDUDE -p m328p -c usbasp -U flash:w:blink.hex
+```
+
+### `rpi`
+
+Use this shell to cross-build AArch64 Linux binaries for Raspberry Pi class
+targets. The shell exports a complete cross toolchain along with
+`QEMU_AARCH64` and `QEMU_SYSTEM_AARCH64`.
+
+Start it with:
+
+```bash
+nix develop path:.#rpi
+```
+
+Build and smoke-test a static userspace binary before moving it to actual Pi
+hardware:
+
+```bash
+$CC -static hello.c -o hello-aarch64
+$QEMU_AARCH64 ./hello-aarch64
+```
+
+For full-device testing, deploy the binary or image to a Raspberry Pi and keep
+QEMU user-mode as the fast local sanity check.
+
+### `dos`
+
+Use this shell for DOS development with DJGPP. It exports `DJDIR`,
+`DJGPP_TARGET`, the DOS cross-toolchain variables, and `DOSBOX`.
+
+Start it with:
+
+```bash
+nix develop path:.#dos
+```
+
+Build and run a DOS executable:
+
+```bash
+$CC hello.c -o HELLO.EXE
+$DOSBOX -c "mount c ." -c "c:" -c "HELLO.EXE" -c "exit"
+```
+
+### `z88dk`
+
+Use this shell for Z80 and 8-bit homebrew projects that target the `z88dk`
+toolchain. It exports `Z88DK_ROOT` and is primarily build-focused.
+
+Start it with:
+
+```bash
+nix develop path:.#z88dk
+```
+
+Example build loop for ZX Spectrum:
+
+```bash
+zcc +zx -vn -startup=31 hello.c -o hello -create-app
+```
+
+The resulting tape, snapshot, or binary image should then be opened in your
+target emulator or on real hardware. This shell focuses on the compiler and
+packaging toolchain rather than bundling a single preferred emulator.
+
+### `nes`
+
+Use this shell for Nintendo Entertainment System homebrew with `cc65`. The
+shell exports `NES_EMULATOR` for a quick FCEUX-based test loop.
+
+Start it with:
+
+```bash
+nix develop path:.#nes
+```
+
+Build and test a ROM:
+
+```bash
+cl65 -t nes hello.c -o hello.nes
+$NES_EMULATOR ./hello.nes
+```
+
 ## Notes
 
 - The main tunables live near the top of `flake.nix` in the `cfg` attrset: host name, disk/image settings, locale, LUKS name, swap size, and default user settings.
@@ -167,7 +517,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
 - All systems now use X11 + LightDM + Xfce, with `picom` enabled as the session compositor.
 - The flake now exposes two installed-system fragments: `myhost` for the desktop profile and `myhost-server` for the minimal server profile.
-- The flake now exposes four toolchain-oriented dev shells: `native`, `mingw`, `gba`, and `android`. It also exposes `hello`, which is derived from `pkgs.hello`.
+- The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z88dk`, and `nes` dev shells.
 - Their toolchains are also installed into the system closure and added to `system.extraDependencies`, so they stay available offline on the installed system and the ISO.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
 - `examples/android-minimal-gradle` is a deliberately tiny Gradle project that builds an APK offline with the SDK command-line tools already present in the shell instead of downloading the Android Gradle Plugin.
