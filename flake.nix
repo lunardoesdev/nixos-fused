@@ -26,6 +26,10 @@
       pkgsFor = import nixpkgs {
         system = "x86_64-linux";
         overlays = [ devkitNix.overlays.default ];
+        config = {
+          allowUnfree = true;
+          android_sdk.accept_license = true;
+        };
       };
       secretsFile = builtins.toString ./. + "/secrets.toml";
       rawSecrets =
@@ -198,16 +202,82 @@
         ++ mingwDevPackages
         ++ gbaDevPackages
       );
+      commonAppPackages = [
+        pkgsFor."adwaita-icon-theme"
+        pkgsFor."steam-run"
+        pkgsFor.love
+        pkgsFor.godot
+        pkgsFor."yt-dlp"
+        pkgsFor.aria2
+        pkgsFor."android-tools"
+        pkgsFor.unrar
+        pkgsFor.ncdu
+        pkgsFor.rclone
+        pkgsFor.restic
+        pkgsFor.blender
+        pkgsFor.gimp
+        pkgsFor.inkscape
+        pkgsFor.krita
+        pkgsFor.tiled
+        pkgsFor.qbittorrent
+        pkgsFor.calibre
+        pkgsFor.foliate
+        pkgsFor."goldendict-ng"
+        pkgsFor.unison
+        pkgsFor.git
+        pkgsFor.bun
+        pkgsFor.deno
+        pkgsFor."libreoffice-fresh"
+        pkgsFor.vscode
+        pkgsFor.fastfetch
+        pkgsFor.btop
+        pkgsFor.mgba
+        pkgsFor.scummvm
+        pkgsFor.wine
+        pkgsFor."dosbox-staging"
+        pkgsFor.obsidian
+        pkgsFor.scrcpy
+        pkgsFor.eza
+        pkgsFor."zed-editor"
+        pkgsFor.keepassxc
+        pkgsFor."vokoscreen-ng"
+        pkgsFor.kdePackages.kdenlive
+        pkgsFor.kiwix
+        pkgsFor."kiwix-tools"
+      ];
+      allSystemPackages = lib.unique (
+        offlineDevPackages
+        ++ commonAppPackages
+      );
       commonModule =
-        { lib, ... }:
+        {
+          lib,
+          pkgs,
+          ...
+        }:
         {
           networking.hostName = lib.mkDefault cfg.hostName;
 
           documentation.enable = false;
           services.udisks2.enable = lib.mkDefault false;
-          services.printing.enable = false;
+          services.printing.enable = true;
           services.pulseaudio.enable = false;
           security.polkit.enable = lib.mkDefault false;
+          security.rtkit.enable = true;
+
+          hardware.bluetooth = {
+            enable = true;
+            powerOnBoot = true;
+            settings = {
+              General = {
+                Experimental = true;
+                FastConnectable = false;
+              };
+              Policy = {
+                AutoEnable = true;
+              };
+            };
+          };
 
           i18n.defaultLocale = cfg.locale;
           i18n.supportedLocales = [ cfg.supportedLocale ];
@@ -216,9 +286,113 @@
             "nix-command"
             "flakes"
           ];
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.android_sdk.accept_license = true;
           nixpkgs.overlays = [ devkitNix.overlays.default ];
 
           system.switch.enable = true;
+
+          zramSwap.enable = true;
+          zramSwap.memoryPercent = 100;
+
+          programs.java.enable = true;
+          programs.cdemu.enable = true;
+          programs.appimage.binfmt = true;
+
+          fonts.packages =
+            (with pkgs; [
+              noto-fonts
+              noto-fonts-cjk-sans
+              noto-fonts-color-emoji
+              liberation_ttf
+              fira-code
+              fira-code-symbols
+              mplus-outline-fonts.githubRelease
+              dina-font
+              proggyfonts
+              corefonts
+              adwaita-fonts
+            ])
+            ++ [
+              pkgs.nerd-fonts.hack
+              pkgs.nerd-fonts.tinos
+              pkgs.nerd-fonts.iosevka
+              pkgs.nerd-fonts.monofur
+              pkgs.nerd-fonts."zed-mono"
+              pkgs.nerd-fonts.mononoki
+              pkgs.nerd-fonts.profont
+              pkgs.nerd-fonts."adwaita-mono"
+            ];
+
+          services.pipewire = {
+            enable = true;
+            alsa.enable = true;
+            alsa.support32Bit = true;
+            pulse.enable = true;
+          };
+
+          networking.stevenblack.enable = true;
+
+          services.i2pd = {
+            enable = true;
+
+            proto.http = {
+              enable = true;
+              port = 7070;
+            };
+
+            proto.httpProxy = {
+              enable = true;
+              port = 4444;
+            };
+
+            proto.socksProxy = {
+              enable = true;
+              port = 4447;
+            };
+
+            addressbook.subscriptions = [
+              "http://reg.i2p/hosts.txt"
+              "http://notbob.i2p/hosts-all.txt"
+              "http://identiguy.i2p/hosts.txt"
+              "http://stats.i2p/cgi-bin/newhosts.txt"
+              "http://i2p-projekt.i2p/hosts.txt"
+            ];
+
+            outTunnels = {
+              "IRC-ILITA" = {
+                address = "127.0.0.1";
+                port = 6668;
+                destination = "irc.ilita.i2p";
+                destinationPort = 6667;
+                keys = "irc-keys.dat";
+              };
+
+              "IRC-IRC2P" = {
+                address = "127.0.0.1";
+                port = 6669;
+                destination = "irc.postman.i2p";
+                destinationPort = 6667;
+                keys = "irc2-keys.dat";
+              };
+
+              SMTP = {
+                address = "127.0.0.1";
+                port = 7659;
+                destination = "smtp.postman.i2p";
+                destinationPort = 25;
+                keys = "smtp-keys.dat";
+              };
+
+              POP3 = {
+                address = "127.0.0.1";
+                port = 7660;
+                destination = "pop.postman.i2p";
+                destinationPort = 110;
+                keys = "pop3-keys.dat";
+              };
+            };
+          };
 
           swapDevices = [
             {
@@ -236,8 +410,8 @@
               password = cfg.user.password;
             };
 
-          environment.systemPackages = offlineDevPackages;
-          system.extraDependencies = offlineDevPackages ++ [
+          environment.systemPackages = allSystemPackages;
+          system.extraDependencies = allSystemPackages ++ [
             nixpkgs
             disko
             home-manager
