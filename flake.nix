@@ -1068,7 +1068,7 @@
           '';
         };
 
-        gba = pkgsFor.mkShell.override { stdenv = pkgsFor.devkitNix.stdenvARM; } {
+        gba = pkgsFor.mkShell {
           packages = gbaDevPackages;
           shellHook = gbaShellHook;
         };
