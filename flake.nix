@@ -228,7 +228,8 @@
       mingwCrossCc = pkgsFor.pkgsCross.mingwW64.stdenv.cc;
       mingwPrefix = mingwCrossCc.targetPrefix;
       armEmbeddedPrefix = "arm-none-eabi-";
-      avrPrefix = "avr-";
+      avrCrossCc = pkgsFor.pkgsCross.avr.stdenv.cc;
+      avrPrefix = avrCrossCc.targetPrefix;
       dosTarget = "i586-pc-msdosdjgpp";
       rpiCrossCc = pkgsFor.pkgsCross.aarch64-multiplatform.stdenv.cc;
       rpiCrossPrefix = rpiCrossCc.targetPrefix;
@@ -273,14 +274,14 @@
       '';
       avrShellHook = ''
         export CROSS_COMPILE="${avrPrefix}"
-        export CC="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}gcc"
-        export CXX="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}g++"
-        export AS="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}as"
-        export AR="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}ar"
-        export LD="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}ld"
-        export OBJCOPY="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}objcopy"
-        export OBJDUMP="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}objdump"
-        export SIZE="${pkgsFor.pkgsCross.avr.buildPackages.gcc}/bin/${avrPrefix}size"
+        export CC="${avrCrossCc}/bin/${avrPrefix}gcc"
+        export CXX="${avrCrossCc}/bin/${avrPrefix}g++"
+        export AS="${avrCrossCc}/bin/${avrPrefix}as"
+        export AR="${avrCrossCc}/bin/${avrPrefix}ar"
+        export LD="${avrCrossCc}/bin/${avrPrefix}ld"
+        export OBJCOPY="${avrCrossCc}/bin/${avrPrefix}objcopy"
+        export OBJDUMP="${avrCrossCc}/bin/${avrPrefix}objdump"
+        export SIZE="${avrCrossCc}/bin/${avrPrefix}size"
         export AVRDUDE="${pkgsFor.avrdude}/bin/avrdude"
         export SIMAVR="${pkgsFor.simavr}/bin/simavr"
       '';
@@ -374,7 +375,7 @@
       avrDevPackages = with pkgsFor; [
         avrdude
         gdb
-        pkgsCross.avr.buildPackages.gcc
+        avrCrossCc
         pkgsCross.avr.libc
         python3
         simavr
