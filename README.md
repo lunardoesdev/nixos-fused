@@ -144,6 +144,15 @@ profile and installer ISO also carry these toolchains in their system closure
 so they remain available offline after installation. The `web` shell includes
 `nodejs`, which already provides `npm`.
 
+Before using any shell, make sure the local flake can evaluate:
+
+```bash
+cp secrets.toml.example secrets.toml
+```
+
+The dev shells read the same `secrets.toml`-backed flake inputs as the system
+outputs, so they will fail to evaluate if `secrets.toml` is missing.
+
 ### `native`
 
 Use this for ordinary Linux-hosted C, C++, Rust, Go, Zig, Python, and SDL3
