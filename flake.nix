@@ -682,8 +682,8 @@
             devices = [ config.disko.devices.disk.main.device ];
           };
 
-          boot.initrd.secrets.${serverLuksKeyFile} = luksPasswordFile;
-          boot.initrd.luks.devices.${cfg.luks.name}.keyFile = serverLuksKeyFile;
+          boot.initrd.secrets.${serverLuksKeyFile} = lib.mkForce luksPasswordFile;
+          boot.initrd.luks.devices.${cfg.luks.name}.keyFile = lib.mkForce serverLuksKeyFile;
         };
       isoSystemModule =
         { config, lib, pkgs, ... }:

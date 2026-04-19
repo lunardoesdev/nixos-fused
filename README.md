@@ -214,3 +214,19 @@ Review pinned versions:
 ```bash
 sed -n '1,220p' flake.lock
 ```
+
+Run the resulting raw image in QEMU with 1.5 GiB RAM:
+
+```bash
+qemu-system-x86_64 \
+  -m 1536 \
+  -machine q35,accel=kvm:tcg \
+  -cpu max \
+  -drive if=virtio,format=raw,file=./myhost.raw \
+  -nic user,model=virtio-net-pci \
+  -serial mon:stdio
+```
+
+## Donations
+
+https://lunardoesdev.github.io/donate/
