@@ -61,20 +61,6 @@ nix develop path:.#<shell-name>
 See the dedicated Dev Shells section below for the available shell names and
 their platform-specific workflows.
 
-Build the bundled minimal offline Android example APK:
-
-```bash
-cd examples/android-minimal-gradle
-gradle assembleDebug
-```
-
-Verify the APK signature:
-
-```bash
-cd examples/android-minimal-gradle
-gradle verifyDebug
-```
-
 Build the installer ISO image:
 
 ```bash
@@ -275,16 +261,9 @@ Start it with:
 nix develop path:.#android
 ```
 
-The bundled sample project builds entirely offline:
-
-```bash
-cd examples/android-minimal-gradle
-gradle assembleDebug
-gradle verifyDebug
-```
-
-For your own projects, keep Gradle dependencies vendored or pre-fetched if you
-need truly offline builds.
+For your own projects, run your normal Gradle workflow inside the shell. If
+you need truly offline builds, keep Gradle dependencies vendored or
+pre-fetched.
 
 ### `embedded`
 
@@ -529,7 +508,6 @@ $NES_EMULATOR ./hello.nes
 - The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z88dk`, and `nes` dev shells.
 - Their toolchains are also installed into the system closure and added to `system.extraDependencies`, so they stay available offline on the installed system and the ISO.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
-- `examples/android-minimal-gradle` is a deliberately tiny Gradle project that builds an APK offline with the SDK command-line tools already present in the shell instead of downloading the Android Gradle Plugin.
 - `myhost-server` reuses the same `secrets.toml` values for the hostname, users, passwords, target disk, and LUKS settings, but drops the desktop/audio/Bluetooth/app stack and skips Home Manager.
 - `myhost-server` uses GRUB instead of Limine, enables OpenSSH, opens port 22 in the firewall, keeps DHCP on by default, and adds `qemu-guest` support for more typical VPS environments.
 - `myhost-server` also enables unattended root unlock by embedding the existing `luks_password` value into the initrd as `/crypto_keyfile.bin`.
