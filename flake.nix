@@ -343,7 +343,7 @@
         nodejs
       ] ++ commonBuildTools;
       embeddedDevPackages = with pkgsFor; [
-        "gcc-arm-embedded"
+        pkgsFor."gcc-arm-embedded"
         gdb
         openocd
         python3
@@ -363,7 +363,7 @@
         qemu_full
       ] ++ commonBuildTools;
       stm32DevPackages = with pkgsFor; [
-        "gcc-arm-embedded"
+        pkgsFor."gcc-arm-embedded"
         gdb
         openocd
         python3
@@ -387,7 +387,7 @@
       ] ++ commonBuildTools;
       dosDevPackages = with pkgsFor; [
         djgpp
-        "dosbox-staging"
+        pkgsFor."dosbox-staging"
       ] ++ commonBuildTools;
       z88dkDevPackages = with pkgsFor; [
         python3
