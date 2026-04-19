@@ -58,12 +58,13 @@
 
             After that, build or rebuild using the local path flake reference, for example:
 
-              sudo nix build path:.#system
+              sudo nix build path:.#nixosConfigurations.myhost.config.system.build.toplevel
               sudo nixos-rebuild switch --flake path:.#myhost
           '';
       cfg = rec {
         system = "x86_64-linux";
         hostName = "myhost";
+        serverConfigName = "${hostName}-server";
         isoConfigName = "${hostName}-installer";
         locale = "en_US.UTF-8";
         supportedLocale = "en_US.UTF-8/UTF-8";
@@ -96,11 +97,13 @@
       };
       luksPasswordFile =
         if cfg.luks.password == null then null else builtins.toFile "luks-password" cfg.luks.password;
+      serverLuksKeyFile = "/crypto_keyfile.bin";
       diskLayout =
         {
           device ? cfg.disk.device,
           imageName ? cfg.disk.imageName,
           imageSize ? cfg.disk.imageSize,
+          luksKeyFile ? null,
         }:
         {
           disko.devices = {
@@ -132,7 +135,13 @@
                       {
                         type = "luks";
                         name = cfg.luks.name;
-                        settings.allowDiscards = cfg.luks.allowDiscards;
+                        settings =
+                          {
+                            allowDiscards = cfg.luks.allowDiscards;
+                          }
+                          // lib.optionalAttrs (luksKeyFile != null) {
+                            keyFile = luksKeyFile;
+                          };
                         content = {
                           type = "btrfs";
                           mountpoint = "/";
@@ -148,6 +157,9 @@
           };
         };
       diskConfig = diskLayout { };
+      serverDiskConfig = diskLayout {
+        luksKeyFile = serverLuksKeyFile;
+      };
       isoGrubModules = [
         "fat"
         "iso9660"
@@ -294,20 +306,74 @@
         pkgsFor.nmap
         pkgsFor.qemu_full
       ];
-      allSystemPackages = lib.unique (
+      workstationSystemPackages = lib.unique (
         offlineDevPackages
         ++ commonAppPackages
       );
-      commonModule =
+      serverSystemPackages = with pkgsFor; [
+        curl
+        git
+        htop
+      ];
+      baseCommonModule =
         {
           lib,
-          pkgs,
           ...
         }:
         {
           networking.hostName = lib.mkDefault cfg.hostName;
 
           documentation.enable = false;
+          i18n.defaultLocale = cfg.locale;
+          i18n.supportedLocales = [ cfg.supportedLocale ];
+
+          nix.settings.experimental-features = [
+            "nix-command"
+            "flakes"
+          ];
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.android_sdk.accept_license = true;
+          nixpkgs.overlays = [ devkitNix.overlays.default ];
+
+          system.switch.enable = true;
+
+          zramSwap.enable = true;
+          zramSwap.memoryPercent = 100;
+
+          swapDevices = [
+            {
+              device = "/swapfile";
+              size = cfg.swapMiB;
+            }
+          ];
+
+          users.mutableUsers = false;
+          users.users.root.password = cfg.root.password;
+          users.users.${cfg.user.name} =
+            {
+              isNormalUser = true;
+              extraGroups = [ "wheel" ];
+              password = cfg.user.password;
+            };
+
+          system.stateVersion = cfg.stateVersion;
+        };
+      mkSystemPackagesModule =
+        {
+          systemPackages,
+          extraDependencies ? [ ],
+        }:
+        {
+          environment.systemPackages = systemPackages;
+          system.extraDependencies = systemPackages ++ extraDependencies;
+        };
+      workstationServicesModule =
+        {
+          pkgs,
+          lib,
+          ...
+        }:
+        {
           services.udisks2.enable = lib.mkDefault false;
           services.printing.enable = true;
           services.pulseaudio.enable = false;
@@ -327,22 +393,6 @@
               };
             };
           };
-
-          i18n.defaultLocale = cfg.locale;
-          i18n.supportedLocales = [ cfg.supportedLocale ];
-
-          nix.settings.experimental-features = [
-            "nix-command"
-            "flakes"
-          ];
-          nixpkgs.config.allowUnfree = true;
-          nixpkgs.config.android_sdk.accept_license = true;
-          nixpkgs.overlays = [ devkitNix.overlays.default ];
-
-          system.switch.enable = true;
-
-          zramSwap.enable = true;
-          zramSwap.memoryPercent = 100;
 
           programs.java.enable = true;
           programs.cdemu.enable = true;
@@ -444,33 +494,50 @@
               };
             };
           };
-
-          swapDevices = [
-            {
-              device = "/swapfile";
-              size = cfg.swapMiB;
-            }
-          ];
-
-          users.mutableUsers = false;
-          users.users.root.password = cfg.root.password;
-          users.users.${cfg.user.name} =
-            {
-              isNormalUser = true;
-              extraGroups = [ "wheel" ];
-              password = cfg.user.password;
-            };
-
-          environment.systemPackages = allSystemPackages;
-          system.extraDependencies = allSystemPackages ++ [
-            nixpkgs
-            disko
-            home-manager
-            devkitNix
-          ];
-
-          system.stateVersion = cfg.stateVersion;
         };
+      workstationPackagesModule = mkSystemPackagesModule {
+        systemPackages = workstationSystemPackages;
+        extraDependencies = [
+          nixpkgs
+          disko
+          home-manager
+          devkitNix
+        ];
+      };
+      serverCommonModule =
+        { lib, ... }:
+        {
+          services.openssh = {
+            enable = true;
+            openFirewall = true;
+            settings = {
+              PasswordAuthentication = true;
+              KbdInteractiveAuthentication = false;
+              PermitRootLogin = "no";
+            };
+          };
+
+          services.qemuGuest.enable = lib.mkDefault true;
+          services.spice-vdagentd.enable = lib.mkDefault false;
+          services.printing.enable = lib.mkForce false;
+          services.udisks2.enable = lib.mkForce false;
+          services.pulseaudio.enable = lib.mkForce false;
+          security.polkit.enable = lib.mkForce false;
+          networking.useDHCP = lib.mkForce false;
+          networking.useNetworkd = true;
+          systemd.network.enable = true;
+          systemd.network.networks."10-uplink" = {
+            matchConfig.Name = "e*";
+            networkConfig.DHCP = "yes";
+          };
+        };
+      serverPackagesModule = mkSystemPackagesModule {
+        systemPackages = serverSystemPackages;
+        extraDependencies = [
+          nixpkgs
+          disko
+        ];
+      };
       desktopCommonModule =
         { lib, ... }:
         {
@@ -591,6 +658,32 @@
           # boot.initrd.secrets."/crypto_keyfile.bin" = ./crypto_keyfile.bin;
           # disko.devices.disk.main.content.partitions.root.content.settings.keyFile =
           #   "/crypto_keyfile.bin";
+        };
+      serverInstalledSystemModule =
+        { config, lib, ... }:
+        {
+          assertions = [
+            {
+              assertion = cfg.luks.password != null;
+              message = ''
+                ${cfg.serverConfigName} requires [secrets].luks_password in secrets.toml
+                because it embeds that value into the initrd for unattended boot.
+              '';
+            }
+          ];
+
+          boot.loader.limine.enable = lib.mkForce false;
+          boot.loader.systemd-boot.enable = lib.mkForce false;
+          boot.loader.efi.canTouchEfiVariables = false;
+          boot.loader.grub = {
+            enable = true;
+            efiSupport = true;
+            efiInstallAsRemovable = true;
+            devices = [ config.disko.devices.disk.main.device ];
+          };
+
+          boot.initrd.secrets.${serverLuksKeyFile} = luksPasswordFile;
+          boot.initrd.luks.devices.${cfg.luks.name}.keyFile = serverLuksKeyFile;
         };
       isoSystemModule =
         { config, lib, pkgs, ... }:
@@ -737,16 +830,31 @@
     in
     {
       diskoConfigurations.${cfg.hostName} = diskConfig;
+      diskoConfigurations.${cfg.serverConfigName} = serverDiskConfig;
 
       nixosConfigurations.${cfg.hostName} = nixpkgs.lib.nixosSystem {
         inherit (cfg) system;
         modules = [
           disko.nixosModules.disko
           diskConfig
-          commonModule
+          baseCommonModule
+          workstationServicesModule
+          workstationPackagesModule
           desktopCommonModule
           homeManagerModule
           installedSystemModule
+        ];
+      };
+
+      nixosConfigurations.${cfg.serverConfigName} = nixpkgs.lib.nixosSystem {
+        inherit (cfg) system;
+        modules = [
+          disko.nixosModules.disko
+          serverDiskConfig
+          baseCommonModule
+          serverCommonModule
+          serverPackagesModule
+          serverInstalledSystemModule
         ];
       };
 
@@ -754,25 +862,15 @@
         inherit (cfg) system;
         modules = [
           (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal-new-kernel-no-zfs.nix")
-          commonModule
+          baseCommonModule
+          workstationServicesModule
+          workstationPackagesModule
           desktopCommonModule
           homeManagerModule
           isoSystemModule
         ];
       };
 
-      packages.${cfg.system} =
-        let
-          build = self.nixosConfigurations.${cfg.hostName}.config.system.build;
-          isoBuild = self.nixosConfigurations.${cfg.isoConfigName}.config.system.build;
-        in
-        {
-          default = build.toplevel;
-          system = build.toplevel;
-          image = build.diskoImages;
-          "image-script" = build.diskoImagesScript;
-          iso = isoBuild.isoImage;
-        };
       devShells.${cfg.system} = {
         native = pkgsFor.mkShell {
           packages = nativeDevPackages;
