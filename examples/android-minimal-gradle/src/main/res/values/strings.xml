@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Minimal Offline App</string>
+    <string name="hello_text">Built offline with Gradle and the Android SDK.</string>
+</resources>

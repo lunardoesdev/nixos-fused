@@ -185,10 +185,46 @@
         xmake
         autoconf
         gnumake
+        ninja
         pkg-config
       ];
+      androidToolchain = rec {
+        cmdLineTools = "20.0";
+        platformTools = "37.0.0";
+        buildTools = "37.0.0";
+        platform = "37";
+        ndk = "29.0.14206865";
+        cmake = "4.1.2";
+      };
+      androidComposition = pkgsFor.androidenv.composeAndroidPackages {
+        cmdLineToolsVersion = androidToolchain.cmdLineTools;
+        platformToolsVersion = androidToolchain.platformTools;
+        buildToolsVersions = [ androidToolchain.buildTools ];
+        platformVersions = [ androidToolchain.platform ];
+        includeCmake = true;
+        cmakeVersions = [ androidToolchain.cmake ];
+        includeNDK = true;
+        ndkVersions = [ androidToolchain.ndk ];
+        includeEmulator = false;
+        includeSources = false;
+        includeSystemImages = false;
+      };
+      androidSdkRoot = "${androidComposition.androidsdk}/libexec/android-sdk";
+      androidBuildToolsPath = "${androidSdkRoot}/build-tools/${androidToolchain.buildTools}";
+      androidNdkBundleRoot = "${androidSdkRoot}/ndk-bundle";
+      androidNdkRoot = "${androidSdkRoot}/ndk/${androidToolchain.ndk}";
       nativeDevPackages = with pkgsFor; [
         gcc
+        clang
+        clang-tools
+        gdb
+        lldb
+        rustc
+        cargo
+        go
+        zig
+        uv
+        (python3.withPackages (ps: [ ps.tkinter ]))
         sdl3
       ] ++ commonBuildTools;
       mingwDevPackages = commonBuildTools ++ [
@@ -197,10 +233,17 @@
       gbaDevPackages = [
         pkgsFor.devkitNix.devkitARM
       ] ++ commonBuildTools;
+      androidDevPackages = with pkgsFor; [
+        androidComposition.androidsdk
+        gradle
+        jdk17
+        zip
+      ] ++ commonBuildTools;
       offlineDevPackages = lib.unique (
         nativeDevPackages
         ++ mingwDevPackages
         ++ gbaDevPackages
+        ++ androidDevPackages
       );
       commonAppPackages = [
         pkgsFor."adwaita-icon-theme"
@@ -244,6 +287,12 @@
         pkgsFor.kdePackages.kdenlive
         pkgsFor.kiwix
         pkgsFor."kiwix-tools"
+        pkgsFor."ffmpeg-full"
+        pkgsFor.mpv
+        pkgsFor.gparted
+        pkgsFor.parted
+        pkgsFor.nmap
+        pkgsFor.qemu_full
       ];
       allSystemPackages = lib.unique (
         offlineDevPackages
@@ -298,6 +347,8 @@
           programs.java.enable = true;
           programs.cdemu.enable = true;
           programs.appimage.binfmt = true;
+          programs.nix-ld.enable = true;
+          programs.wireshark.enable = true;
 
           fonts.packages =
             (with pkgs; [
@@ -458,6 +509,12 @@
         {
           home.stateVersion = cfg.stateVersion;
           programs.home-manager.enable = true;
+
+          home.pointerCursor = {
+            name = "Bibata-Modern-Classic";
+            enable = true;
+            package = pkgs.bibata-cursors;
+          };
 
           home.sessionVariables = {
             EDITOR = lib.mkDefault "${pkgs.nano}/bin/nano";
@@ -727,6 +784,24 @@
 
         mingw = pkgsFor.mkShell {
           packages = mingwDevPackages;
+        };
+
+        android = pkgsFor.mkShell {
+          packages = androidDevPackages;
+          shellHook = ''
+            export JAVA_HOME="${pkgsFor.jdk17}"
+            export ANDROID_SDK_ROOT="${androidSdkRoot}"
+            export ANDROID_HOME="$ANDROID_SDK_ROOT"
+            export ANDROID_NDK_ROOT="${androidNdkBundleRoot}"
+            export ANDROID_NDK_HOME="$ANDROID_NDK_ROOT"
+            export ANDROID_NDK_LATEST_HOME="${androidNdkRoot}"
+            export ANDROID_BUILD_TOOLS_VERSION="${androidToolchain.buildTools}"
+            export ANDROID_PLATFORM_VERSION="${androidToolchain.platform}"
+            export PATH="$JAVA_HOME/bin:${androidBuildToolsPath}:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_NDK_ROOT:$PATH"
+            export PATH="$(echo "$ANDROID_SDK_ROOT/cmake/${androidToolchain.cmake}".*/bin):$PATH"
+            export ORG_GRADLE_PROJECT_android_aapt2FromMavenOverride="${androidBuildToolsPath}/aapt2"
+            export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ORG_GRADLE_PROJECT_android_aapt2FromMavenOverride''${GRADLE_OPTS:+ $GRADLE_OPTS}"
+          '';
         };
 
         gba = pkgsFor.mkShell.override { stdenv = pkgsFor.devkitNix.stdenvARM; } {

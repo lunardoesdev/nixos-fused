@@ -1,4 +1,4 @@
-# raa
+# Nixos-fused
 
 Very minimal NixOS flake with Disko, a hybrid EFI/BIOS Limine bootloader layout, a LUKS-encrypted Btrfs root, and one normal user.
 
@@ -46,10 +46,18 @@ Build the system:
 sudo nix build path:.#system
 ```
 
-Enter the native C/C++ development shell:
+Enter the native development shell with GCC, Clang, Rust, Go, Zig, Python,
+SDL3, and the common build/debug tools:
 
 ```bash
 nix develop path:.#native
+```
+
+Enter the Android development shell with a pinned Android SDK, NDK, CMake,
+Gradle, JDK 17, and the environment variables needed for command-line builds:
+
+```bash
+nix develop path:.#android
 ```
 
 Enter the `hello` package development shell derived from the package itself:
@@ -68,6 +76,20 @@ Enter the Game Boy Advance shell with `devkitARM`:
 
 ```bash
 nix develop path:.#gba
+```
+
+Build the bundled minimal offline Android example APK:
+
+```bash
+cd examples/android-minimal-gradle
+gradle assembleDebug
+```
+
+Verify the APK signature:
+
+```bash
+cd examples/android-minimal-gradle
+gradle verifyDebug
 ```
 
 Build the installer ISO image:
@@ -120,8 +142,10 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 - Home Manager is wired in through the NixOS module, so `nixos-rebuild` builds the system and both home configurations together.
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
 - All systems now use X11 + LightDM + Xfce, with `picom` enabled as the session compositor.
-- The flake now exposes exactly three dev shells: `native`, `mingw`, and `gba`.
+- The flake now exposes four toolchain-oriented dev shells: `native`, `mingw`, `gba`, and `android`. It also exposes `hello`, which is derived from `pkgs.hello`.
 - Their toolchains are also installed into the system closure and added to `system.extraDependencies`, so they stay available offline on the installed system and the ISO.
+- The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
+- `examples/android-minimal-gradle` is a deliberately tiny Gradle project that builds an APK offline with the SDK command-line tools already present in the shell instead of downloading the Android Gradle Plugin.
 - `secrets.toml.example` is the template. Copy it to `secrets.toml` before building.
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.

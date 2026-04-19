@@ -1,0 +1,273 @@
+plugins {
+  id 'base'
+}
+
+def requiredEnv = { String name ->
+  def value = System.getenv(name)
+  if (value == null || value.isBlank()) {
+    throw new GradleException("Missing ${name}. Enter the shell with `nix develop path:.#android` first.")
+  }
+  value
+}
+
+ext {
+  compileApi = Integer.parseInt(System.getenv('ANDROID_PLATFORM_VERSION') ?: '37')
+  minSdk = 21
+  targetSdk = compileApi
+  versionCode = 1
+  versionName = '1.0'
+  buildToolsVersion = System.getenv('ANDROID_BUILD_TOOLS_VERSION') ?: '37.0.0'
+
+  sdkRoot = file(requiredEnv('ANDROID_SDK_ROOT'))
+  javaHome = file(requiredEnv('JAVA_HOME'))
+
+  buildToolsDir = file("${sdkRoot}/build-tools/${buildToolsVersion}")
+  platformDir = file("${sdkRoot}/platforms/android-${compileApi}")
+  androidJar = file("${platformDir}/android.jar")
+
+  aapt2 = file("${buildToolsDir}/aapt2")
+  d8 = file("${buildToolsDir}/d8")
+  zipalign = file("${buildToolsDir}/zipalign")
+  apksigner = file("${buildToolsDir}/apksigner")
+  javac = file("${javaHome}/bin/javac")
+  keytool = file("${javaHome}/bin/keytool")
+}
+
+def generatedJavaDir = layout.buildDirectory.dir('generated/source/r').get().asFile
+def compiledResDir = layout.buildDirectory.dir('intermediates/compiled-res').get().asFile
+def resourceApk = layout.buildDirectory.file('intermediates/apk/resources-unsigned.apk').get().asFile
+def classesDir = layout.buildDirectory.dir('intermediates/javac').get().asFile
+def dexDir = layout.buildDirectory.dir('intermediates/dex').get().asFile
+def debugKeystore = layout.buildDirectory.file('debug.keystore').get().asFile
+def unalignedApk = layout.buildDirectory.file('outputs/apk/app-unaligned.apk').get().asFile
+def alignedApk = layout.buildDirectory.file('outputs/apk/app-aligned.apk').get().asFile
+def finalApk = layout.buildDirectory.file('outputs/apk/app-debug.apk').get().asFile
+
+def javaSources = fileTree('src/main/java') {
+  include '**/*.java'
+}
+
+tasks.register('checkAndroidToolchain') {
+  doLast {
+    [
+      sdkRoot,
+      javaHome,
+      buildToolsDir,
+      platformDir,
+      androidJar,
+      aapt2,
+      d8,
+      zipalign,
+      apksigner,
+      javac,
+      keytool,
+    ].each { path ->
+      if (!path.exists()) {
+        throw new GradleException("Missing required tool or directory: ${path}")
+      }
+    }
+  }
+}
+
+tasks.register('compileResources') {
+  dependsOn 'checkAndroidToolchain'
+  inputs.dir 'src/main/res'
+  outputs.dir compiledResDir
+
+  doLast {
+    delete compiledResDir
+    compiledResDir.mkdirs()
+
+    exec {
+      executable aapt2.absolutePath
+      args 'compile', '--dir', file('src/main/res').absolutePath, '-o', compiledResDir.absolutePath
+    }
+  }
+}
+
+tasks.register('linkResources') {
+  dependsOn 'compileResources'
+  inputs.file 'src/main/AndroidManifest.xml'
+  inputs.dir compiledResDir
+  outputs.file resourceApk
+  outputs.dir generatedJavaDir
+
+  doLast {
+    delete generatedJavaDir, resourceApk
+    generatedJavaDir.mkdirs()
+    resourceApk.parentFile.mkdirs()
+
+    def compiledResources = fileTree(compiledResDir) {
+      include '**/*.flat'
+    }.files.sort { a, b -> a.absolutePath <=> b.absolutePath }
+
+    if (compiledResources.isEmpty()) {
+      throw new GradleException("No compiled resources were generated in ${compiledResDir}")
+    }
+
+    exec {
+      executable aapt2.absolutePath
+      args 'link',
+        '-I', androidJar.absolutePath,
+        '--manifest', file('src/main/AndroidManifest.xml').absolutePath,
+        '--java', generatedJavaDir.absolutePath,
+        '--min-sdk-version', "${minSdk}",
+        '--target-sdk-version', "${targetSdk}",
+        '--version-code', "${versionCode}",
+        '--version-name', versionName,
+        '-o', resourceApk.absolutePath
+      args compiledResources.collect { it.absolutePath }
+    }
+  }
+}
+
+tasks.register('compileAppJava') {
+  dependsOn 'linkResources'
+  inputs.files javaSources
+  inputs.dir generatedJavaDir
+  outputs.dir classesDir
+
+  doLast {
+    delete classesDir
+    classesDir.mkdirs()
+
+    def sources = (
+      javaSources.files +
+      fileTree(generatedJavaDir).matching { include '**/*.java' }.files
+    ).sort { a, b -> a.absolutePath <=> b.absolutePath }
+
+    exec {
+      executable javac.absolutePath
+      args '-g', '--release', '8'
+      args '-classpath', androidJar.absolutePath
+      args '-d', classesDir.absolutePath
+      args sources.collect { it.absolutePath }
+    }
+  }
+}
+
+tasks.register('dexDebug') {
+  dependsOn 'compileAppJava'
+  inputs.dir classesDir
+  outputs.dir dexDir
+
+  doLast {
+    delete dexDir
+    dexDir.mkdirs()
+
+    def classFiles = fileTree(classesDir) {
+      include '**/*.class'
+    }.files.sort { a, b -> a.absolutePath <=> b.absolutePath }
+
+    exec {
+      executable d8.absolutePath
+      args '--lib', androidJar.absolutePath
+      args '--min-api', "${minSdk}"
+      args '--output', dexDir.absolutePath
+      args classFiles.collect { it.absolutePath }
+    }
+  }
+}
+
+tasks.register('generateDebugKeystore') {
+  dependsOn 'checkAndroidToolchain'
+  outputs.file debugKeystore
+
+  doLast {
+    if (debugKeystore.exists()) {
+      return
+    }
+
+    debugKeystore.parentFile.mkdirs()
+
+    exec {
+      executable keytool.absolutePath
+      args '-genkeypair',
+        '-storetype', 'PKCS12',
+        '-keystore', debugKeystore.absolutePath,
+        '-storepass', 'android',
+        '-alias', 'androiddebugkey',
+        '-keypass', 'android',
+        '-dname', 'CN=Android Debug,O=Android,C=US',
+        '-keyalg', 'RSA',
+        '-keysize', '2048',
+        '-validity', '10000',
+        '-noprompt'
+    }
+  }
+}
+
+tasks.register('packageDebug') {
+  dependsOn 'dexDebug'
+  inputs.file resourceApk
+  inputs.dir dexDir
+  outputs.file unalignedApk
+
+  doLast {
+    delete unalignedApk
+    unalignedApk.parentFile.mkdirs()
+
+    copy {
+      from resourceApk
+      into unalignedApk.parentFile
+      rename { unalignedApk.name }
+    }
+
+    exec {
+      executable 'zip'
+      args '-q', '-j', unalignedApk.absolutePath, file("${dexDir}/classes.dex").absolutePath
+    }
+  }
+}
+
+tasks.register('alignDebug') {
+  dependsOn 'packageDebug'
+  inputs.file unalignedApk
+  outputs.file alignedApk
+
+  doLast {
+    delete alignedApk
+    alignedApk.parentFile.mkdirs()
+
+    exec {
+      executable zipalign.absolutePath
+      args '-f', '4', unalignedApk.absolutePath, alignedApk.absolutePath
+    }
+  }
+}
+
+tasks.register('assembleDebug') {
+  dependsOn 'alignDebug', 'generateDebugKeystore'
+  inputs.file alignedApk
+  inputs.file debugKeystore
+  outputs.file finalApk
+
+  doLast {
+    delete finalApk
+    finalApk.parentFile.mkdirs()
+
+    exec {
+      executable apksigner.absolutePath
+      args 'sign',
+        '--ks', debugKeystore.absolutePath,
+        '--ks-pass', 'pass:android',
+        '--key-pass', 'pass:android',
+        '--out', finalApk.absolutePath,
+        alignedApk.absolutePath
+    }
+  }
+}
+
+tasks.register('verifyDebug') {
+  dependsOn 'assembleDebug'
+  inputs.file finalApk
+
+  doLast {
+    exec {
+      executable apksigner.absolutePath
+      args 'verify', '--verbose', '--print-certs', finalApk.absolutePath
+    }
+  }
+}
+
+defaultTasks 'assembleDebug'
