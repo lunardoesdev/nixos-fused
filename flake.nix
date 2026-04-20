@@ -320,6 +320,7 @@
         go
         zig
         uv
+        fltk
         (python3.withPackages (ps: [ ps.tkinter ]))
         sdl3
       ] ++ commonBuildTools;
@@ -448,8 +449,14 @@
         pkgsFor.vscode
         pkgsFor.fastfetch
         pkgsFor.btop
+        pkgsFor.gzdoom
+        pkgsFor.xonotic
+        pkgsFor.hedgewars
         pkgsFor.mgba
+        pkgsFor.mesen
+        pkgsFor."nestopia-ue"
         pkgsFor.scummvm
+        pkgsFor.slade
         pkgsFor.wine
         pkgsFor."dosbox-staging"
         pkgsFor.obsidian

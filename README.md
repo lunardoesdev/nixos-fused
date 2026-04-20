@@ -123,6 +123,34 @@ Install to a real disk with `disko-install`:
 sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#myhost --disk main /dev/sdX
 ```
 
+Write a prebuilt raw image to a real disk with `dd`:
+
+```bash
+sudo dd if=./myhost.raw of=/dev/sdX bs=16M oflag=direct conv=fsync status=progress
+sudo sync
+```
+
+Replace `/dev/sdX` with the whole target disk, not a partition such as
+`/dev/sdX1`. This overwrites the partition table and all existing data on the
+target disk.
+
+If the target disk is larger than the raw image, grow the root partition and
+filesystem afterward. This layout uses GPT with the encrypted root in partition
+3, so the grow path is partition 3 -> LUKS mapper `crypted` -> Btrfs `/`.
+
+After writing the image, boot the installer ISO or another live environment and
+run:
+
+```bash
+sudo parted /dev/sdX --script "resizepart 3 100%"
+sudo partprobe /dev/sdX
+sudo cryptsetup open /dev/sdX3 crypted
+sudo cryptsetup resize crypted
+sudo mount /dev/mapper/crypted /mnt
+sudo btrfs filesystem resize max /mnt
+sudo umount /mnt
+```
+
 ## Dev Shells
 
 All shells are entered with `nix develop path:.#<shell-name>`. The desktop
