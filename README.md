@@ -151,6 +151,27 @@ sudo btrfs filesystem resize max /mnt
 sudo umount /mnt
 ```
 
+You can also try to grow it from the installed system while it is booted. The
+online-capable parts are the active LUKS mapping and the mounted Btrfs
+filesystem. The risky part is the partition table reread: if the kernel refuses
+to pick up the new size for the in-use root partition, stop and use the live
+environment method above instead.
+
+On the running installed system:
+
+```bash
+sudo parted /dev/sdX --script "resizepart 3 100%"
+sudo partprobe /dev/sdX
+lsblk /dev/sdX
+sudo cryptsetup resize crypted
+sudo btrfs filesystem resize max /
+```
+
+If `partprobe` fails or `lsblk` still shows the old size for `/dev/sdX3`, the
+kernel has not accepted the new partition geometry while the system is live.
+Do not continue with the online path in that case; reboot into the installer ISO
+or another live environment and use the offline grow sequence above.
+
 ## Dev Shells
 
 All shells are entered with `nix develop path:.#<shell-name>`. The desktop
