@@ -89,7 +89,7 @@
           efiSize = "512M";
         };
         btrfs = {
-          compression = "zstd:15";
+          compression = "zstd";
         };
 
         luks = {
@@ -483,6 +483,27 @@
           ...
         }:
         {
+          # This flake does not import a machine-specific hardware-configuration
+          # file, so stage-1 needs an explicit baseline set of storage and input
+          # drivers to make the encrypted-root prompt usable on common bare-metal
+          # and VM targets.
+          boot.initrd.availableKernelModules = [
+            "ahci"
+            "atkbd"
+            "hid_generic"
+            "nvme"
+            "sd_mod"
+            "sr_mod"
+            "uas"
+            "usbhid"
+            "usb_storage"
+            "virtio_blk"
+            "virtio_input"
+            "virtio_pci"
+            "virtio_scsi"
+            "xhci_pci"
+          ];
+
           networking.hostName = lib.mkDefault cfg.hostName;
 
           documentation.enable = false;
