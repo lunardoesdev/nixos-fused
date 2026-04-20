@@ -479,6 +479,7 @@
       ];
       baseCommonModule =
         {
+          config,
           lib,
           ...
         }:
@@ -503,6 +504,12 @@
             "virtio_scsi"
             "xhci_pci"
           ];
+
+          # Keep the baseline broadly portable across Intel and AMD machines
+          # without pulling in any NVIDIA-specific configuration.
+          hardware.enableRedistributableFirmware = true;
+          hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+          hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
           networking.hostName = lib.mkDefault cfg.hostName;
 
@@ -724,6 +731,11 @@
       desktopCommonModule =
         { lib, ... }:
         {
+          hardware.graphics = {
+            enable = true;
+            enable32Bit = true;
+          };
+
           services.xserver.enable = true;
           services.displayManager.defaultSession = "xfce";
           services.xserver.displayManager.lightdm.enable = true;

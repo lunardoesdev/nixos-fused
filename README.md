@@ -516,6 +516,8 @@ $NES_EMULATOR ./hello.nes
 - The Disko layout is defined directly in `flake.nix`.
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition mounted with `compress=zstd:15`.
 - Because this flake does not import a host-specific `hardware-configuration.nix`, it carries an explicit generic `boot.initrd.availableKernelModules` set so stage 1 can still see common storage controllers and keyboards well enough to present the LUKS prompt.
+- The shared base also enables redistributable firmware plus both Intel and AMD CPU microcode update paths, so one config can cover common x86_64 machines without a generated hardware module.
+- The desktop profile enables generic NixOS graphics support, including 32-bit userspace for workloads like Wine, but does not enable any NVIDIA-specific driver stack.
 - Limine is configured for both EFI and BIOS installs.
 - The installed system writes both `BOOTX64.EFI` and `BOOTIA32.EFI` to the removable EFI boot path, so x86_64 and IA32 UEFI firmware can both find Limine.
 - `path:.#nixosConfigurations.myhost-installer.config.system.build.isoImage` builds installer/live media using the same base settings from this flake, with installer-specific overrides layered on top. It is not your installed target filesystem image.
