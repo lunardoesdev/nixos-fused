@@ -741,6 +741,10 @@
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
+          programs.throne = {
+            enable = true;
+            tunMode.enable = true;
+          };
           programs.clash-verge = {
             enable = true;
             tunMode = true;
