@@ -85,7 +85,7 @@
           # or nixos-anywhere deployments. Normal rebuilds do not repartition.
           device = lib.attrByPath [ "install" "disk_device" ] "/dev/vda" rawSecrets;
           imageName = hostName;
-          imageSize = "50G";
+          imageSize = "30G";
           efiSize = "512M";
         };
         btrfs = {
