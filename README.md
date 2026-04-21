@@ -134,27 +134,23 @@ Replace `/dev/sdX` with the whole target disk, not a partition such as
 `/dev/sdX1`. This overwrites the partition table and all existing data on the
 target disk.
 
-If the target disk is larger than the raw image, the installed system now tries
-to expand itself automatically on first boot. The installed profiles enable
-partition growth plus filesystem auto-resize, so the last partition can grow
-into the remaining space and Btrfs can follow it.
+If the target disk is larger than the raw image, grow the installed system
+manually after writing the image. This layout uses GPT with the encrypted root
+in partition 3, so the grow path is partition 3 -> LUKS mapper `crypted` ->
+Btrfs `/`.
 
 For a normal real-hardware deployment, the intended flow is:
 
 1. Write the raw image with `dd`.
 2. Boot the target machine from that disk.
-3. Unlock LUKS and let the system finish the first boot.
+3. Grow partition 3, then the LUKS mapper, then the Btrfs filesystem using one
+   of the manual sequences below.
 4. Check the result with `lsblk` and `btrfs filesystem usage /`.
-
-If the first-boot automatic grow does not take effect on a particular machine,
-use the manual fallback below. This layout uses GPT with the encrypted root in
-partition 3, so the grow path is partition 3 -> LUKS mapper `crypted` -> Btrfs
-`/`.
 
 Manual fallback from the installer ISO or another live environment:
 
 ```bash
-sudo parted /dev/sdX --script "resizepart 3 100%"
+sudo parted /dev/sdX --fix --script "resizepart 3 100%"
 sudo partprobe /dev/sdX
 sudo cryptsetup open /dev/sdX3 crypted
 sudo cryptsetup resize crypted
@@ -166,7 +162,7 @@ sudo umount /mnt
 Manual fallback from the already booted installed system:
 
 ```bash
-sudo parted /dev/sdX --script "resizepart 3 100%"
+sudo parted /dev/sdX --fix --script "resizepart 3 100%"
 sudo partprobe /dev/sdX
 lsblk /dev/sdX
 sudo cryptsetup resize crypted
@@ -570,7 +566,7 @@ $NES_EMULATOR ./hello.nes
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition mounted with `compress=zstd:15`.
-- The installed desktop and server profiles both enable first-boot partition growth plus filesystem auto-resize, so raw images can expand automatically when written to larger disks.
+- Raw images do not auto-expand on first boot. If you write one onto a larger disk, grow partition 3 manually and then resize the LUKS mapper plus the Btrfs filesystem.
 - Because this flake does not import a host-specific `hardware-configuration.nix`, it carries an explicit generic `boot.initrd.availableKernelModules` set so stage 1 can still see common storage controllers and keyboards well enough to present the LUKS prompt.
 - The shared base also enables redistributable firmware plus both Intel and AMD CPU microcode update paths, so one config can cover common x86_64 machines without a generated hardware module.
 - The desktop profile enables generic NixOS graphics support, including 32-bit userspace for workloads like Wine, but does not enable any NVIDIA-specific driver stack.
@@ -623,7 +619,7 @@ qemu-system-x86_64 \
   -serial mon:stdio
 ```
 
-To test first-boot auto-expansion in QEMU, use the smaller server raw image,
+To test the manual grow procedure in QEMU, use the smaller server raw image,
 copy it, enlarge the copy, boot it, and then inspect the guest over SSH:
 
 ```bash
@@ -650,8 +646,7 @@ sudo btrfs filesystem usage /
 ```
 
 The key thing to verify is that partition 3 and `/` are larger than the
-original image size. If they are still at the original size, the automatic grow
-path did not complete and you should fall back to the manual resize steps above.
+original image size after you run the grow commands above.
 
 ## Donations
 
