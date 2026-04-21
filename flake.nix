@@ -581,8 +581,11 @@
           services.udisks2.enable = lib.mkDefault false;
           services.printing.enable = true;
           services.pulseaudio.enable = false;
-          security.polkit.enable = lib.mkDefault false;
+          security.polkit.enable = true;
           security.rtkit.enable = true;
+          networking.networkmanager.enable = true;
+          programs.nm-applet.enable = true;
+          services.blueman.enable = true;
 
           hardware.bluetooth = {
             enable = true;
