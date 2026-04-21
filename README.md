@@ -147,18 +147,20 @@ Replace `/dev/sdX` with the whole target disk, not a partition such as
 `/dev/sdX1`. This overwrites the partition table and all existing data on the
 target disk.
 
-If the target disk is larger than the raw image, grow the installed system
-manually after writing the image. This layout uses GPT with the encrypted root
-in partition 3, so the grow path is partition 3 -> LUKS mapper `crypted` ->
-Btrfs `/`.
+If the target disk is larger than the raw image, the installed system now
+attempts to grow itself automatically on first boot after the LUKS root is
+unlocked and `/` is mounted. This layout uses GPT with the encrypted root in
+partition 3, so the grow path is partition 3 -> LUKS mapper `crypted` -> Btrfs
+`/`.
 
 For a normal real-hardware deployment, the intended flow is:
 
 1. Write the raw image with `dd`.
 2. Boot the target machine from that disk.
-3. Grow partition 3, then the LUKS mapper, then the Btrfs filesystem using one
-   of the manual sequences below.
-4. Check the result with `lsblk` and `btrfs filesystem usage /`.
+3. Let the first-boot `root-auto-grow` service attempt the online grow path.
+4. If it fails because the running kernel does not accept the new partition
+   geometry, use one of the manual sequences below.
+5. Check the result with `lsblk` and `btrfs filesystem usage /`.
 
 Manual fallback from the installer ISO or another live environment:
 
@@ -184,8 +186,9 @@ sudo btrfs filesystem resize max /
 
 If `partprobe` fails or `lsblk` still shows the old size for `/dev/sdX3`, the
 kernel has not accepted the new partition geometry while the system is live.
-Do not continue with the online path in that case; reboot into the installer ISO
-or another live environment and use the offline grow sequence above.
+That is also the expected failure mode for the first-boot `root-auto-grow`
+service. In that case, reboot into the installer ISO or another live
+environment and use the offline grow sequence above.
 
 ## Dev Shells
 
@@ -580,7 +583,7 @@ $NES_EMULATOR ./hello.nes
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition mounted with `compress=zstd:15`.
-- Raw images do not auto-expand on first boot. If you write one onto a larger disk, grow partition 3 manually and then resize the LUKS mapper plus the Btrfs filesystem.
+- Raw images now attempt an automatic first-boot grow of partition 3, the `crypted` LUKS mapper, and the Btrfs root filesystem. If the running kernel refuses the live partition-table reread, use the documented manual fallback.
 - Because this flake does not import a host-specific `hardware-configuration.nix`, it carries an explicit generic `boot.initrd.availableKernelModules` set so stage 1 can still see common storage controllers and keyboards well enough to present the LUKS prompt.
 - The shared base also enables redistributable firmware plus both Intel and AMD CPU microcode update paths, so one config can cover common x86_64 machines without a generated hardware module.
 - The desktop profile enables generic NixOS graphics support, including 32-bit userspace for workloads like Wine, but does not enable any NVIDIA-specific driver stack.

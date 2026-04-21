@@ -942,6 +942,115 @@
             extraModules = [ homeManagerUserModule ];
           };
         };
+      autoGrowRootModule =
+        { pkgs, lib, ... }:
+        let
+          stampPath = "/var/lib/root-auto-grow.done";
+          growThresholdBytes = 4 * 1024 * 1024;
+        in
+        {
+          systemd.services.root-auto-grow = {
+            description = "Grow root partition, LUKS mapping, and Btrfs filesystem";
+            wantedBy = [ "multi-user.target" ];
+            after = [
+              "local-fs.target"
+              "systemd-udev-settle.service"
+            ];
+            wants = [ "systemd-udev-settle.service" ];
+            unitConfig.ConditionPathExists = "!${stampPath}";
+            path = with pkgs; [
+              bash
+              btrfs-progs
+              coreutils
+              cryptsetup
+              gawk
+              parted
+              util-linux
+            ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+            };
+            script = ''
+              set -euo pipefail
+
+              stamp_path=${lib.escapeShellArg stampPath}
+              expected_root_source=/dev/mapper/${cfg.luks.name}
+              root_source=$(findmnt -n -o SOURCE /)
+
+              if [ "$root_source" != "$expected_root_source" ]; then
+                echo "root-auto-grow: unexpected root source $root_source, expected $expected_root_source" >&2
+                exit 1
+              fi
+
+              root_part_kname=$(lsblk -n -o PKNAME "$root_source" | head -n1)
+              if [ -z "$root_part_kname" ]; then
+                echo "root-auto-grow: could not determine encrypted root partition" >&2
+                exit 1
+              fi
+              root_part="/dev/$root_part_kname"
+
+              disk_kname=$(lsblk -n -o PKNAME "$root_part" | head -n1)
+              if [ -z "$disk_kname" ]; then
+                echo "root-auto-grow: could not determine parent disk for $root_part" >&2
+                exit 1
+              fi
+              disk="/dev/$disk_kname"
+
+              partnum=$(lsblk -n -o PARTN "$root_part" | head -n1)
+              if [ -z "$partnum" ]; then
+                echo "root-auto-grow: could not determine partition number for $root_part" >&2
+                exit 1
+              fi
+
+              parted_output=$(parted -ms "$disk" unit B print)
+              disk_bytes=$(printf '%s\n' "$parted_output" | awk -F: 'NR == 2 { sub(/B$/, "", $2); print $2 }')
+              part_end_bytes=$(printf '%s\n' "$parted_output" | awk -F: -v part="$partnum" '$1 == part { sub(/B$/, "", $3); print $3 }')
+
+              if [ -z "$disk_bytes" ] || [ -z "$part_end_bytes" ]; then
+                echo "root-auto-grow: could not parse partition geometry for $disk partition $partnum" >&2
+                exit 1
+              fi
+
+              if [ $((disk_bytes - part_end_bytes)) -le ${toString growThresholdBytes} ]; then
+                mkdir -p "$(dirname "$stamp_path")"
+                touch "$stamp_path"
+                echo "root-auto-grow: no additional disk space detected"
+                exit 0
+              fi
+
+              old_part_bytes=$(blockdev --getsize64 "$root_part")
+
+              parted "$disk" --fix --script "resizepart $partnum 100%"
+
+              for _ in $(seq 1 10); do
+                blockdev --rereadpt "$disk" || true
+                partprobe "$disk" || true
+                ${pkgs.systemd}/bin/udevadm settle || true
+
+                new_part_bytes=$(blockdev --getsize64 "$root_part")
+                if [ "$new_part_bytes" -gt "$old_part_bytes" ]; then
+                  break
+                fi
+
+                sleep 1
+              done
+
+              new_part_bytes=$(blockdev --getsize64 "$root_part")
+              if [ "$new_part_bytes" -le "$old_part_bytes" ]; then
+                echo "root-auto-grow: partition resize did not become visible to the running kernel" >&2
+                exit 1
+              fi
+
+              cryptsetup resize ${cfg.luks.name}
+              btrfs filesystem resize max /
+
+              mkdir -p "$(dirname "$stamp_path")"
+              touch "$stamp_path"
+              echo "root-auto-grow: resized $root_part, /dev/mapper/${cfg.luks.name}, and /"
+            '';
+          };
+        };
       installedSystemModule =
         { config, lib, pkgs, ... }:
         let
@@ -1154,6 +1263,7 @@
           desktopCommonModule
           desktopFullModule
           homeManagerModule
+          autoGrowRootModule
           installedSystemModule
         ];
       };
@@ -1167,6 +1277,7 @@
           minimalDesktopServicesModule
           minimalDesktopPackagesModule
           desktopCommonModule
+          autoGrowRootModule
           installedSystemModule
         ];
       };
@@ -1179,6 +1290,7 @@
           baseCommonModule
           serverCommonModule
           serverPackagesModule
+          autoGrowRootModule
           serverInstalledSystemModule
         ];
       };
