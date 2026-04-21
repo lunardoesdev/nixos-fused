@@ -453,7 +453,7 @@
         pkgsFor.audacity
         pkgsFor.strawberry
         pkgsFor.gzdoom
-        pkgsFor.xonotic
+        #pkgsFor.xonotic
         pkgsFor.hedgewars
         pkgsFor.mgba
         pkgsFor.mesen
