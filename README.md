@@ -593,6 +593,7 @@ $NES_EMULATOR ./hello.nes
 - For a one-session runtime test without rebuilding, run `systemctl --user stop picom.service` after login.
 - `/boot` stays unencrypted so Limine can load the kernel and initrd, and the initrd then prompts for the LUKS passphrase to unlock `/`.
 - The minimal desktop Disko image output is named `myhost-minimal.raw` and defaults to `30G`.
+- GPT partition UUIDs, the ESP FAT volume ID, the LUKS UUID, and the Btrfs UUID are pinned deterministically and shared across the desktop, minimal desktop, and server outputs.
 - The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
 - The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.
 - The config is still intentionally restrained: docs are disabled, printing and audio are off, locales are limited to `en_US.UTF-8`, and the desktop stack is Xfce with the LightDM GTK greeter plus `picom`.

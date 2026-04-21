@@ -99,6 +99,23 @@
           password = lib.attrByPath [ "secrets" "luks_password" ] null rawSecrets;
         };
       };
+      mkDeterministicUuid =
+        seed:
+        let
+          hash = builtins.hashString "sha256" seed;
+        in
+        "${builtins.substring 0 8 hash}-${builtins.substring 8 4 hash}-4${builtins.substring 13 3 hash}-a${builtins.substring 17 3 hash}-${builtins.substring 20 12 hash}";
+      mkDeterministicVfatId = seed: builtins.substring 0 8 (builtins.hashString "sha256" seed);
+      mkDiskIdentity =
+        name: {
+          biosPartUuid = mkDeterministicUuid "${name}:gpt:bios";
+          espPartUuid = mkDeterministicUuid "${name}:gpt:esp";
+          rootPartUuid = mkDeterministicUuid "${name}:gpt:root";
+          espVolumeId = mkDeterministicVfatId "${name}:vfat:boot";
+          luksUuid = mkDeterministicUuid "${name}:luks:root";
+          btrfsUuid = mkDeterministicUuid "${name}:btrfs:root";
+        };
+      sharedDiskIdentity = mkDiskIdentity cfg.hostName;
       luksPasswordFile =
         if cfg.luks.password == null then null else builtins.toFile "luks-password" cfg.luks.password;
       serverLuksKeyFile = "/crypto_keyfile.bin";
@@ -107,6 +124,7 @@
           device ? cfg.disk.device,
           imageName ? cfg.disk.imageName,
           imageSize ? cfg.disk.imageSize,
+          identity,
           luksKeyFile ? null,
         }:
         {
@@ -121,24 +139,32 @@
                     priority = 1;
                     size = "1M";
                     type = "EF02";
+                    uuid = identity.biosPartUuid;
                   };
                   ESP = {
                     priority = 2;
                     size = cfg.disk.efiSize;
                     type = "EF00";
+                    uuid = identity.espPartUuid;
                     content = {
                       type = "filesystem";
                       format = "vfat";
+                      extraArgs = [
+                        "-i"
+                        identity.espVolumeId
+                      ];
                       mountpoint = "/boot";
                       mountOptions = [ "umask=0077" ];
                     };
                   };
                   root = {
                     size = "100%";
+                    uuid = identity.rootPartUuid;
                     content =
                       {
                         type = "luks";
                         name = cfg.luks.name;
+                        extraFormatArgs = [ "--uuid=${identity.luksUuid}" ];
                         settings =
                           {
                             allowDiscards = cfg.luks.allowDiscards;
@@ -148,6 +174,10 @@
                           };
                         content = {
                           type = "btrfs";
+                          extraArgs = [
+                            "--uuid"
+                            identity.btrfsUuid
+                          ];
                           mountpoint = "/";
                           mountOptions = [ "compress=${cfg.btrfs.compression}" ];
                         };
@@ -161,11 +191,16 @@
             };
           };
         };
-      diskConfig = diskLayout { };
+      diskConfig = diskLayout {
+        identity = sharedDiskIdentity;
+      };
       minimalDiskConfig = diskLayout {
         imageName = cfg.minimalDesktopConfigName;
+        identity = sharedDiskIdentity;
       };
       serverDiskConfig = diskLayout {
+        imageName = cfg.serverConfigName;
+        identity = sharedDiskIdentity;
         luksKeyFile = serverLuksKeyFile;
         imageSize = "5G";
       };
