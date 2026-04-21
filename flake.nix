@@ -584,6 +584,10 @@
             "nix-command"
             "flakes"
           ];
+          nix.settings.flake-registry = "";
+          nix.channel.enable = false;
+          nixpkgs.flake.setFlakeRegistry = true;
+          nixpkgs.flake.setNixPath = true;
           nixpkgs.config.allowUnfree = true;
           nixpkgs.config.android_sdk.accept_license = true;
           nixpkgs.overlays = [ devkitNix.overlays.default ];
