@@ -449,6 +449,9 @@
         pkgsFor.vscode
         pkgsFor.fastfetch
         pkgsFor.btop
+        pkgsFor.meld
+        pkgsFor.audacity
+        pkgsFor.strawberry
         pkgsFor.gzdoom
         pkgsFor.xonotic
         pkgsFor.hedgewars
@@ -472,6 +475,9 @@
         pkgsFor.mpv
         pkgsFor.gparted
         pkgsFor.parted
+        pkgsFor.usbutils
+        pkgsFor.pciutils
+        pkgsFor.ventoy
         pkgsFor.nmap
         pkgsFor.qemu_full
       ];
