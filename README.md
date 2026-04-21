@@ -38,24 +38,25 @@ leave it alone.
 
 ## Commands
 
-Nix must be started with `sudo` on this machine.
+Use `sudo` only for commands that modify the running system or touch real block
+devices.
 
 Build the system:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost.config.system.build.toplevel
+nix build path:.#nixosConfigurations.myhost.config.system.build.toplevel
 ```
 
 Build the minimal server system:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost-server.config.system.build.toplevel
+nix build path:.#nixosConfigurations.myhost-server.config.system.build.toplevel
 ```
 
 Build the minimal graphical desktop system:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost-minimal.config.system.build.toplevel
+nix build path:.#nixosConfigurations.myhost-minimal.config.system.build.toplevel
 ```
 
 Enter any development shell:
@@ -70,7 +71,7 @@ their platform-specific workflows.
 Build the installer ISO image:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost-installer.config.system.build.isoImage
+nix build path:.#nixosConfigurations.myhost-installer.config.system.build.isoImage
 ```
 
 The `result` symlink will point directly to the generated `.iso` file.
@@ -78,25 +79,25 @@ The `result` symlink will point directly to the generated `.iso` file.
 Build the Disko image builder script:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost.config.system.build.diskoImagesScript
+nix build path:.#nixosConfigurations.myhost-minimal.config.system.build.diskoImagesScript
 ```
 
 Run the Disko image builder and write the raw image in the current directory:
 
 ```bash
-sudo ./result
+./result
 ```
 
 Build the Disko raw image directly inside the Nix store:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost.config.system.build.diskoImages
+nix build path:.#nixosConfigurations.myhost-minimal.config.system.build.diskoImages
 ```
 
 Build the server Disko raw image directly inside the Nix store:
 
 ```bash
-sudo nix build path:.#nixosConfigurations.myhost-server.config.system.build.diskoImages
+nix build path:.#nixosConfigurations.myhost-server.config.system.build.diskoImages
 ```
 
 If you are on NixOS and want to switch to this configuration immediately:
@@ -126,7 +127,7 @@ sudo nixos-rebuild boot --flake path:.#myhost
 Deploy the minimal server configuration to a VPS with `nixos-anywhere`:
 
 ```bash
-sudo nix run github:nix-community/nixos-anywhere -- --flake path:.#myhost-server root@your-vps
+nix run github:nix-community/nixos-anywhere -- --flake path:.#myhost-server root@your-vps
 ```
 
 Install to a real disk with `disko-install`:
@@ -138,7 +139,7 @@ sudo nix run github:nix-community/disko/latest#disko-install -- --flake path:.#m
 Write a prebuilt raw image to a real disk with `dd`:
 
 ```bash
-sudo dd if=./myhost.raw of=/dev/sdX bs=16M oflag=direct conv=fsync status=progress
+sudo dd if=./myhost-minimal.raw of=/dev/sdX bs=16M oflag=direct conv=fsync status=progress
 sudo sync
 ```
 
@@ -591,7 +592,7 @@ $NES_EMULATOR ./hello.nes
 - To disable compositing altogether, set `services.picom.enable = false;` in `flake.nix` and rebuild. `xfwm4` compositing is already forced off by default, so disabling picom leaves you with no compositor at all.
 - For a one-session runtime test without rebuilding, run `systemctl --user stop picom.service` after login.
 - `/boot` stays unencrypted so Limine can load the kernel and initrd, and the initrd then prompts for the LUKS passphrase to unlock `/`.
-- The Disko image output is named `myhost.raw` and defaults to `10G`.
+- The minimal desktop Disko image output is named `myhost-minimal.raw` and defaults to `30G`.
 - The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
 - The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.
 - The config is still intentionally restrained: docs are disabled, printing and audio are off, locales are limited to `en_US.UTF-8`, and the desktop stack is Xfce with the LightDM GTK greeter plus `picom`.
@@ -611,7 +612,7 @@ $NES_EMULATOR ./hello.nes
 Update pinned inputs:
 
 ```bash
-sudo nix flake lock --update-input nixpkgs --update-input disko --update-input home-manager --update-input devkitNix
+nix flake lock --update-input nixpkgs --update-input disko --update-input home-manager --update-input devkitNix
 ```
 
 Review pinned versions:
@@ -627,7 +628,7 @@ qemu-system-x86_64 \
   -m 1536 \
   -machine q35,accel=kvm:tcg \
   -cpu max \
-  -drive if=virtio,format=raw,file=./myhost.raw \
+  -drive if=virtio,format=raw,file=./myhost-minimal.raw \
   -nic user,model=virtio-net-pci \
   -serial mon:stdio
 ```
@@ -655,7 +656,7 @@ guest finishes booting, log in over SSH with the username and password from
 ssh -p 2222 <user_name>@127.0.0.1
 lsblk
 findmnt /
-sudo btrfs filesystem usage /
+btrfs filesystem usage /
 ```
 
 The key thing to verify is that partition 3 and `/` are larger than the

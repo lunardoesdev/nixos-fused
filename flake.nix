@@ -162,6 +162,9 @@
           };
         };
       diskConfig = diskLayout { };
+      minimalDiskConfig = diskLayout {
+        imageName = cfg.minimalDesktopConfigName;
+      };
       serverDiskConfig = diskLayout {
         luksKeyFile = serverLuksKeyFile;
         imageSize = "5G";
@@ -1102,6 +1105,7 @@
     in
     {
       diskoConfigurations.${cfg.hostName} = diskConfig;
+      diskoConfigurations.${cfg.minimalDesktopConfigName} = minimalDiskConfig;
       diskoConfigurations.${cfg.serverConfigName} = serverDiskConfig;
 
       nixosConfigurations.${cfg.hostName} = nixpkgs.lib.nixosSystem {
@@ -1123,7 +1127,7 @@
         inherit (cfg) system;
         modules = [
           disko.nixosModules.disko
-          diskConfig
+          minimalDiskConfig
           baseCommonModule
           minimalDesktopServicesModule
           minimalDesktopPackagesModule
