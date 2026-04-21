@@ -475,6 +475,7 @@
         pkgsFor.mpv
         pkgsFor.gparted
         pkgsFor.parted
+        pkgsFor.veracrypt
         pkgsFor.usbutils
         pkgsFor.pciutils
         pkgsFor.nmap
