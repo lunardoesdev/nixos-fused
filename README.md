@@ -52,6 +52,12 @@ Build the minimal server system:
 sudo nix build path:.#nixosConfigurations.myhost-server.config.system.build.toplevel
 ```
 
+Build the minimal graphical desktop system:
+
+```bash
+sudo nix build path:.#nixosConfigurations.myhost-minimal.config.system.build.toplevel
+```
+
 Enter any development shell:
 
 ```bash
@@ -103,6 +109,12 @@ Switch to the minimal server configuration instead:
 
 ```bash
 sudo nixos-rebuild switch --flake path:.#myhost-server
+```
+
+Switch to the minimal graphical desktop configuration instead:
+
+```bash
+sudo nixos-rebuild switch --flake path:.#myhost-minimal
 ```
 
 If you want to make it the next boot target without switching the running system:
@@ -552,12 +564,13 @@ $NES_EMULATOR ./hello.nes
 ## Notes
 
 - The main tunables live near the top of `flake.nix` in the `cfg` attrset: host name, disk/image settings, locale, LUKS name, swap size, and default user settings.
-- Home Manager is wired in through the NixOS module, so `nixos-rebuild` builds the system and both home configurations together.
+- The full desktop profile and installer wire Home Manager in through the NixOS module, so rebuilding those targets also builds the root and user home configurations.
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
-- All systems now use X11 + LightDM + Xfce, with `picom` enabled as the session compositor.
-- The flake now exposes two installed-system fragments: `myhost` for the desktop profile and `myhost-server` for the minimal server profile.
+- The graphical profiles use X11 + LightDM + Xfce. The full desktop and installer also enable `picom`, while `myhost-minimal` omits it.
+- The flake now exposes three installed-system fragments: `myhost` for the full desktop profile, `myhost-minimal` for a lean Xfce desktop profile, and `myhost-server` for the minimal server profile.
 - The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z88dk`, and `nes` dev shells.
-- Their toolchains are also installed into the system closure and added to `system.extraDependencies`, so they stay available offline on the installed system and the ISO.
+- The full desktop profile and installer also install those toolchains into the system closure and add them to `system.extraDependencies`, so they stay available offline on those heavier targets.
+- `myhost-minimal` keeps Xfce, LightDM, generic graphics support, PipeWire audio, NetworkManager with `nm-applet`, Bluetooth with Blueman, `clash-verge`, `brave`, `uv`, and a small CLI package set, but skips Home Manager, the broader dev toolchain set, the large desktop app bundle, and the extra proxy/network services.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
 - `myhost-server` reuses the same `secrets.toml` values for the hostname, users, passwords, target disk, and LUKS settings, but drops the desktop/audio/Bluetooth/app stack and skips Home Manager.
 - `myhost-server` uses the same Limine-based boot path as the desktop profile, enables OpenSSH, opens port 22 in the firewall, keeps DHCP on by default, and adds `qemu-guest` support for more typical VPS environments.
@@ -592,7 +605,7 @@ $NES_EMULATOR ./hello.nes
 - The LUKS password from `secrets.toml` is converted into a temporary Nix store file and passed to Disko as `passwordFile` for formatting and image/install creation.
 - The server profile uses that same `luks_password` for unattended initrd unlock, while the desktop profile still prompts interactively.
 - `install.disk_device` controls the target device used by Disko and Limine's BIOS install path. You usually only change it for nixos-anywhere, disko-install, or other formatting workflows.
-- Because `secrets.toml` is gitignored, use `path:.#...` for `nix build` and `path:.#myhost` or `path:.#myhost-server` for `nixos-rebuild`. That makes Nix read the local directory directly instead of the Git-indexed flake snapshot.
+- Because `secrets.toml` is gitignored, use `path:.#...` for `nix build` and `path:.#myhost`, `path:.#myhost-minimal`, or `path:.#myhost-server` for `nixos-rebuild`. That makes Nix read the local directory directly instead of the Git-indexed flake snapshot.
 - Reproducibility comes from `flake.lock`. Commit it, and update inputs explicitly when you want to change versions.
 
 Update pinned inputs:

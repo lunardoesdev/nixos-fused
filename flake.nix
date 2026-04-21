@@ -64,6 +64,7 @@
       cfg = rec {
         system = "x86_64-linux";
         hostName = "myhost";
+        minimalDesktopConfigName = "${hostName}-minimal";
         serverConfigName = "${hostName}-server";
         isoConfigName = "${hostName}-installer";
         locale = "en_US.UTF-8";
@@ -486,6 +487,16 @@
         offlineDevPackages
         ++ commonAppPackages
       );
+      minimalDesktopSystemPackages = with pkgsFor; [
+        brave
+        curl
+        git
+        htop
+        nano
+        pciutils
+        usbutils
+        uv
+      ];
       serverSystemPackages = with pkgsFor; [
         curl
         git
@@ -711,6 +722,54 @@
           devkitNix
         ];
       };
+      minimalDesktopServicesModule =
+        { pkgs, lib, ... }:
+        {
+          services.printing.enable = lib.mkForce false;
+          services.pulseaudio.enable = lib.mkForce false;
+          services.pipewire = {
+            enable = true;
+            alsa.enable = true;
+            pulse.enable = true;
+          };
+          security.polkit.enable = true;
+          security.rtkit.enable = true;
+          networking.networkmanager.enable = true;
+          programs.nm-applet.enable = true;
+          programs.clash-verge = {
+            enable = true;
+            tunMode = true;
+            serviceMode = true;
+          };
+          services.blueman.enable = true;
+
+          hardware.bluetooth = {
+            enable = true;
+            powerOnBoot = true;
+            settings = {
+              General = {
+                Experimental = true;
+                FastConnectable = false;
+              };
+              Policy = {
+                AutoEnable = true;
+              };
+            };
+          };
+
+          fonts.packages = with pkgs; [
+            adwaita-fonts
+            noto-fonts
+            noto-fonts-color-emoji
+          ];
+        };
+      minimalDesktopPackagesModule = mkSystemPackagesModule {
+        systemPackages = minimalDesktopSystemPackages;
+        extraDependencies = [
+          nixpkgs
+          disko
+        ];
+      };
       serverCommonModule =
         { lib, ... }:
         {
@@ -746,18 +805,20 @@
         ];
       };
       desktopCommonModule =
-        { lib, ... }:
+        { ... }:
         {
-          hardware.graphics = {
-            enable = true;
-            enable32Bit = true;
-          };
+          hardware.graphics.enable = true;
 
           services.xserver.enable = true;
           services.displayManager.defaultSession = "xfce";
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
+        };
+      desktopFullModule =
+        { lib, ... }:
+        {
+          hardware.graphics.enable32Bit = true;
           programs.throne = {
             enable = true;
             tunMode.enable = true;
@@ -1052,7 +1113,21 @@
           workstationServicesModule
           workstationPackagesModule
           desktopCommonModule
+          desktopFullModule
           homeManagerModule
+          installedSystemModule
+        ];
+      };
+
+      nixosConfigurations.${cfg.minimalDesktopConfigName} = nixpkgs.lib.nixosSystem {
+        inherit (cfg) system;
+        modules = [
+          disko.nixosModules.disko
+          diskConfig
+          baseCommonModule
+          minimalDesktopServicesModule
+          minimalDesktopPackagesModule
+          desktopCommonModule
           installedSystemModule
         ];
       };
@@ -1077,6 +1152,7 @@
           workstationServicesModule
           workstationPackagesModule
           desktopCommonModule
+          desktopFullModule
           homeManagerModule
           isoSystemModule
         ];
