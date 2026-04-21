@@ -850,6 +850,11 @@
           };
         in
         {
+          # Raw images can be written onto larger disks and grow into the
+          # remaining space automatically on first boot.
+          boot.growPartition = true;
+          fileSystems."/".autoResize = true;
+
           boot.loader.grub.enable = false;
           boot.loader.systemd-boot.enable = lib.mkForce false;
           boot.loader.efi.canTouchEfiVariables = false;
@@ -877,7 +882,7 @@
           #   "/crypto_keyfile.bin";
         };
       serverInstalledSystemModule =
-        { config, lib, ... }:
+        { ... }:
         {
           assertions = [
             {
@@ -889,15 +894,10 @@
             }
           ];
 
-          boot.loader.limine.enable = lib.mkForce false;
-          boot.loader.systemd-boot.enable = lib.mkForce false;
-          boot.loader.efi.canTouchEfiVariables = false;
-          boot.loader.grub = {
-            enable = true;
-            efiSupport = true;
-            efiInstallAsRemovable = true;
-            devices = [ config.disko.devices.disk.main.device ];
-          };
+          # Match the desktop image behavior so raw images can expand when
+          # written to larger disks or virtual drives.
+          boot.growPartition = true;
+          fileSystems."/".autoResize = true;
 
           boot.initrd.secrets.${serverLuksKeyFile} = lib.mkForce luksPasswordFile;
           boot.initrd.luks.devices.${cfg.luks.name}.keyFile = lib.mkForce serverLuksKeyFile;

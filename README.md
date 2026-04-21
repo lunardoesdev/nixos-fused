@@ -134,12 +134,24 @@ Replace `/dev/sdX` with the whole target disk, not a partition such as
 `/dev/sdX1`. This overwrites the partition table and all existing data on the
 target disk.
 
-If the target disk is larger than the raw image, grow the root partition and
-filesystem afterward. This layout uses GPT with the encrypted root in partition
-3, so the grow path is partition 3 -> LUKS mapper `crypted` -> Btrfs `/`.
+If the target disk is larger than the raw image, the installed system now tries
+to expand itself automatically on first boot. The installed profiles enable
+partition growth plus filesystem auto-resize, so the last partition can grow
+into the remaining space and Btrfs can follow it.
 
-After writing the image, boot the installer ISO or another live environment and
-run:
+For a normal real-hardware deployment, the intended flow is:
+
+1. Write the raw image with `dd`.
+2. Boot the target machine from that disk.
+3. Unlock LUKS and let the system finish the first boot.
+4. Check the result with `lsblk` and `btrfs filesystem usage /`.
+
+If the first-boot automatic grow does not take effect on a particular machine,
+use the manual fallback below. This layout uses GPT with the encrypted root in
+partition 3, so the grow path is partition 3 -> LUKS mapper `crypted` -> Btrfs
+`/`.
+
+Manual fallback from the installer ISO or another live environment:
 
 ```bash
 sudo parted /dev/sdX --script "resizepart 3 100%"
@@ -151,13 +163,7 @@ sudo btrfs filesystem resize max /mnt
 sudo umount /mnt
 ```
 
-You can also try to grow it from the installed system while it is booted. The
-online-capable parts are the active LUKS mapping and the mounted Btrfs
-filesystem. The risky part is the partition table reread: if the kernel refuses
-to pick up the new size for the in-use root partition, stop and use the live
-environment method above instead.
-
-On the running installed system:
+Manual fallback from the already booted installed system:
 
 ```bash
 sudo parted /dev/sdX --script "resizepart 3 100%"
@@ -558,12 +564,13 @@ $NES_EMULATOR ./hello.nes
 - Their toolchains are also installed into the system closure and added to `system.extraDependencies`, so they stay available offline on the installed system and the ISO.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
 - `myhost-server` reuses the same `secrets.toml` values for the hostname, users, passwords, target disk, and LUKS settings, but drops the desktop/audio/Bluetooth/app stack and skips Home Manager.
-- `myhost-server` uses GRUB instead of Limine, enables OpenSSH, opens port 22 in the firewall, keeps DHCP on by default, and adds `qemu-guest` support for more typical VPS environments.
+- `myhost-server` uses the same Limine-based boot path as the desktop profile, enables OpenSSH, opens port 22 in the firewall, keeps DHCP on by default, and adds `qemu-guest` support for more typical VPS environments.
 - `myhost-server` also enables unattended root unlock by embedding the existing `luks_password` value into the initrd as `/crypto_keyfile.bin`.
 - `secrets.toml.example` is the template. Copy it to `secrets.toml` before building.
 - `secrets.toml` is intentionally gitignored.
 - The Disko layout is defined directly in `flake.nix`.
 - The layout is GPT with a 1 MiB BIOS partition, a 512 MiB EFI system partition mounted at `/boot`, and a LUKS-encrypted Btrfs root partition mounted with `compress=zstd:15`.
+- The installed desktop and server profiles both enable first-boot partition growth plus filesystem auto-resize, so raw images can expand automatically when written to larger disks.
 - Because this flake does not import a host-specific `hardware-configuration.nix`, it carries an explicit generic `boot.initrd.availableKernelModules` set so stage 1 can still see common storage controllers and keyboards well enough to present the LUKS prompt.
 - The shared base also enables redistributable firmware plus both Intel and AMD CPU microcode update paths, so one config can cover common x86_64 machines without a generated hardware module.
 - The desktop profile enables generic NixOS graphics support, including 32-bit userspace for workloads like Wine, but does not enable any NVIDIA-specific driver stack.
@@ -615,6 +622,36 @@ qemu-system-x86_64 \
   -nic user,model=virtio-net-pci \
   -serial mon:stdio
 ```
+
+To test first-boot auto-expansion in QEMU, use the smaller server raw image,
+copy it, enlarge the copy, boot it, and then inspect the guest over SSH:
+
+```bash
+cp --sparse=always ./myhost-server.raw ./myhost-server-growtest.raw
+truncate -s 8G ./myhost-server-growtest.raw
+qemu-system-x86_64 \
+  -m 1536 \
+  -machine q35,accel=kvm:tcg \
+  -cpu max \
+  -drive if=virtio,format=raw,file=./myhost-server-growtest.raw \
+  -nic user,model=virtio-net-pci,hostfwd=tcp::2222-:22
+```
+
+The server profile is the easier grow-test target because it already enables
+OpenSSH and embeds the LUKS key into the initrd for unattended boot. After the
+guest finishes booting, log in over SSH with the username and password from
+`secrets.toml` and check:
+
+```bash
+ssh -p 2222 <user_name>@127.0.0.1
+lsblk
+findmnt /
+sudo btrfs filesystem usage /
+```
+
+The key thing to verify is that partition 3 and `/` are larger than the
+original image size. If they are still at the original size, the automatic grow
+path did not complete and you should fall back to the manual resize steps above.
 
 ## Donations
 
