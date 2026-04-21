@@ -41,6 +41,11 @@ leave it alone.
 Use `sudo` only for commands that modify the running system or touch real block
 devices.
 
+If you prefer wrappers over long flake paths, use the top-level helpers such as
+`./build-minimal-gui-image.sh`, `./build-minimal-gui-system-closure.sh`,
+`./build-server-image.sh`, `./build-server-system-closure.sh`, and
+`./build-live-iso.sh`.
+
 Build the system:
 
 ```bash
@@ -68,7 +73,7 @@ nix develop path:.#<shell-name>
 See the dedicated Dev Shells section below for the available shell names and
 their platform-specific workflows.
 
-Build the installer ISO image:
+Build the live ISO image:
 
 ```bash
 nix build path:.#nixosConfigurations.myhost-installer.config.system.build.isoImage
@@ -162,7 +167,7 @@ For a normal real-hardware deployment, the intended flow is:
    geometry, use one of the manual sequences below.
 5. Check the result with `lsblk` and `btrfs filesystem usage /`.
 
-Manual fallback from the installer ISO or another live environment:
+Manual fallback from the live ISO or another live environment:
 
 ```bash
 sudo parted /dev/sdX --fix --script "resizepart 3 100%"
@@ -187,13 +192,13 @@ sudo btrfs filesystem resize max /
 If `partprobe` fails or `lsblk` still shows the old size for `/dev/sdX3`, the
 kernel has not accepted the new partition geometry while the system is live.
 That is also the expected failure mode for the first-boot `root-auto-grow`
-service. In that case, reboot into the installer ISO or another live
+service. In that case, reboot into the live ISO or another live
 environment and use the offline grow sequence above.
 
 ## Dev Shells
 
 All shells are entered with `nix develop path:.#<shell-name>`. The desktop
-profile and installer ISO also carry these toolchains in their system closure
+profile and live ISO also carry these toolchains in their system closure
 so they remain available offline after installation. The `web` shell includes
 `nodejs`, which already provides `npm`.
 
