@@ -477,7 +477,6 @@
         pkgsFor.parted
         pkgsFor.usbutils
         pkgsFor.pciutils
-        pkgsFor.ventoy
         pkgsFor.nmap
         pkgsFor.qemu_full
       ];
