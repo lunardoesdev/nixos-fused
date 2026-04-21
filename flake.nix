@@ -455,6 +455,7 @@
         pkgsFor.gzdoom
         #pkgsFor.xonotic
         pkgsFor.hedgewars
+        pkgsFor.brave
         pkgsFor.mgba
         pkgsFor.mesen
         pkgsFor."nestopia-ue"
