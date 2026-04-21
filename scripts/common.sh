@@ -3,6 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
+readonly NIX_EXPERIMENTAL_FLAGS=(
+  --extra-experimental-features
+  "nix-command flakes"
+)
 
 die() {
   printf 'error: %s\n' "$*" >&2

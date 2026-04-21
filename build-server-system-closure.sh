@@ -6,4 +6,4 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/scripts/common.sh"
 require_secrets
 cd_repo_root
 
-exec nix build -v "path:.#nixosConfigurations.myhost-server.config.system.build.toplevel"
+exec nix "${NIX_EXPERIMENTAL_FLAGS[@]}" build -v "path:.#nixosConfigurations.myhost-server.config.system.build.toplevel"
