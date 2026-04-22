@@ -685,6 +685,13 @@
               pkgs.nerd-fonts."adwaita-mono"
             ];
 
+          fonts.fontconfig.defaultFonts = {
+            sansSerif = [ "Adwaita Sans" ];
+            serif = [ "Adwaita Sans" ];
+            monospace = [ "Adwaita Mono" ];
+            emoji = [ "Noto Color Emoji" ];
+          };
+
           services.pipewire = {
             enable = true;
             alsa.enable = true;
@@ -902,9 +909,13 @@
           programs.home-manager.enable = true;
 
           home.pointerCursor = {
-            name = "Bibata-Modern-Classic";
             enable = true;
+            name = "Bibata-Modern-Classic";
             package = pkgs.bibata-cursors;
+            size = 24;
+
+            gtk.enable = true;
+            x11.enable = true;
           };
 
           home.sessionVariables = {
@@ -913,7 +924,100 @@
           };
         };
       homeManagerRootModule = { ... }: { };
-      homeManagerUserModule = { ... }: { };
+      homeManagerUserModule =
+        { pkgs, ... }:
+        {
+          gtk = {
+            enable = true;
+
+            font = {
+              name = "Adwaita Sans";
+              size = 11;
+            };
+
+            theme = {
+              name = "adw-gtk3";
+              package = pkgs.adw-gtk3;
+            };
+
+            iconTheme = {
+              name = "Adwaita";
+              package = pkgs.adwaita-icon-theme;
+            };
+
+            cursorTheme = {
+              name = "Bibata-Modern-Classic";
+              package = pkgs.bibata-cursors;
+              size = 24;
+            };
+          };
+
+          qt = {
+            enable = true;
+            platformTheme.name = "gtk3";
+            style.name = "adwaita";
+          };
+
+          xfconf.settings = {
+            xsettings = {
+              "Net/ThemeName" = "adw-gtk3";
+              "Net/IconThemeName" = "Adwaita";
+              "Gtk/CursorThemeName" = "Bibata-Modern-Classic";
+              "Gtk/CursorThemeSize" = {
+                type = "int";
+                value = 24;
+              };
+              "Gtk/FontName" = "Adwaita Sans 11";
+              "Gtk/MonospaceFontName" = "Adwaita Mono 11";
+              "Xft/Antialias" = 1;
+              "Xft/Hinting" = 1;
+              "Xft/HintStyle" = "hintslight";
+              "Xft/RGBA" = "rgb";
+            };
+          };
+
+          xdg.configFile."xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml".text = ''
+            <?xml version="1.0" encoding="UTF-8"?>
+
+            <channel name="xfce4-panel" version="1.0">
+              <property name="configver" type="int" value="2"/>
+              <property name="panels" type="array">
+                <value type="int" value="1"/>
+                <property name="dark-mode" type="bool" value="false"/>
+                <property name="panel-1" type="empty">
+                  <property name="position" type="string" value="p=10;x=0;y=0"/>
+                  <property name="length" type="uint" value="100"/>
+                  <property name="position-locked" type="bool" value="true"/>
+                  <property name="icon-size" type="uint" value="20"/>
+                  <property name="size" type="uint" value="36"/>
+                  <property name="plugin-ids" type="array">
+                    <value type="int" value="1"/>
+                    <value type="int" value="2"/>
+                    <value type="int" value="3"/>
+                    <value type="int" value="4"/>
+                    <value type="int" value="5"/>
+                    <value type="int" value="6"/>
+                  </property>
+                </property>
+              </property>
+              <property name="plugins" type="empty">
+                <property name="plugin-1" type="string" value="applicationsmenu"/>
+                <property name="plugin-2" type="string" value="tasklist">
+                  <property name="grouping" type="uint" value="0"/>
+                </property>
+                <property name="plugin-3" type="string" value="separator">
+                  <property name="expand" type="bool" value="true"/>
+                  <property name="style" type="uint" value="0"/>
+                </property>
+                <property name="plugin-4" type="string" value="systray">
+                  <property name="square-icons" type="bool" value="true"/>
+                </property>
+                <property name="plugin-5" type="string" value="clock"/>
+                <property name="plugin-6" type="string" value="actions"/>
+              </property>
+            </channel>
+          '';
+        };
       mkHomeManagerModule =
         {
           userName,
