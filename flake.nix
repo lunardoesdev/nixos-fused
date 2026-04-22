@@ -811,6 +811,13 @@
             noto-fonts
             noto-fonts-color-emoji
           ];
+
+          fonts.fontconfig.defaultFonts = {
+            sansSerif = [ "Adwaita Sans" ];
+            serif = [ "Adwaita Sans" ];
+            monospace = [ "Adwaita Mono" ];
+            emoji = [ "Noto Color Emoji" ];
+          };
         };
       minimalDesktopPackagesModule = mkSystemPackagesModule {
         systemPackages = minimalDesktopSystemPackages;
@@ -863,20 +870,6 @@
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
-        };
-      desktopFullModule =
-        { lib, ... }:
-        {
-          hardware.graphics.enable32Bit = true;
-          programs.throne = {
-            enable = true;
-            tunMode.enable = true;
-          };
-          programs.clash-verge = {
-            enable = true;
-            tunMode = true;
-            serviceMode = true;
-          };
 
           services.picom = {
             enable = true;
@@ -897,6 +890,20 @@
               </property>
             </channel>
           '';
+        };
+      desktopFullModule =
+        { lib, ... }:
+        {
+          hardware.graphics.enable32Bit = true;
+          programs.throne = {
+            enable = true;
+            tunMode.enable = true;
+          };
+          programs.clash-verge = {
+            enable = true;
+            tunMode = true;
+            serviceMode = true;
+          };
         };
       homeManagerCommonModule =
         {
@@ -1409,6 +1416,7 @@
           minimalDesktopServicesModule
           minimalDesktopPackagesModule
           desktopCommonModule
+          homeManagerModule
           autoGrowRootModule
           installedSystemModule
         ];

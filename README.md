@@ -575,11 +575,11 @@ $NES_EMULATOR ./hello.nes
 - The main tunables live near the top of `flake.nix` in the `cfg` attrset: host name, disk/image settings, locale, LUKS name, swap size, and default user settings.
 - The full desktop profile and installer wire Home Manager in through the NixOS module, so rebuilding those targets also builds the root and user home configurations.
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
-- The graphical installed-system profiles are `myhost` for the full desktop and `myhost-minimal` for the leaner Xfce desktop. The full desktop and installer also enable `picom`.
+- The graphical installed-system profiles are `myhost` for the full desktop and `myhost-minimal` for the leaner Xfce desktop. All Xfce-based desktop outputs enable `picom`.
 - The flake now exposes three installed-system fragments: `myhost` for the full desktop profile, `myhost-minimal` for a lean Xfce desktop profile, and `myhost-server` for the minimal server profile.
 - The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z88dk`, and `nes` dev shells.
 - The full desktop profile and installer also install those toolchains into the system closure and add them to `system.extraDependencies`, so they stay available offline on those heavier targets.
-- `myhost-minimal` keeps Xfce, LightDM, generic graphics support, PipeWire audio, NetworkManager with `nm-applet`, Bluetooth with Blueman, `clash-verge`, `brave`, `uv`, and a small CLI package set, but skips Home Manager, the broader dev toolchain set, the large desktop app bundle, and the extra proxy/network services.
+- `myhost-minimal` keeps Xfce, LightDM, generic graphics support, PipeWire audio, NetworkManager with `nm-applet`, Bluetooth with Blueman, `clash-verge`, `brave`, `uv`, Home Manager-driven desktop settings, and a small CLI package set, but skips the broader dev toolchain set, the large desktop app bundle, and the extra proxy/network services.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
 - `myhost-server` reuses the same `secrets.toml` values for the hostname, users, passwords, target disk, and LUKS settings, but drops the desktop/audio/Bluetooth/app stack and skips Home Manager.
 - `myhost-server` uses the same Limine-based boot path as the desktop profile, enables OpenSSH, opens port 22 in the firewall, keeps DHCP on by default, and adds `qemu-guest` support for more typical VPS environments.
