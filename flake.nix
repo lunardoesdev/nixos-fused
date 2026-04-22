@@ -989,6 +989,8 @@
 
             xfce4-keyboard-shortcuts = {
               "commands/custom/override" = true;
+              "commands/custom/<Primary><Alt>t" =
+                "${pkgs.xfce4-terminal}/bin/xfce4-terminal";
               "commands/custom/Super_L" =
                 "${pkgs.xfce4-whiskermenu-plugin}/bin/xfce4-popup-whiskermenu";
               "commands/custom/<Super>e" = "${pkgs.thunar}/bin/thunar";
