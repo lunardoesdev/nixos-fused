@@ -606,9 +606,107 @@
                 (old.mesonFlags or [ ]))
               ++ [ "-Duse_openconnect=no" ];
           });
-      microBluemanPackage = pkgsFor.blueman.override {
-        withPulseAudio = true;
-      };
+      microBluemanPackage =
+        (pkgsFor.blueman.override {
+          withPulseAudio = true;
+        }).overrideAttrs
+          (old: {
+            buildInputs = builtins.filter (pkg: lib.getName pkg != "networkmanager") (old.buildInputs or [ ]);
+            postInstall = (old.postInstall or "") + ''
+              rm -f "$out/lib/python3.13/site-packages/blueman/plugins/applet/NMDUNSupport.py"
+              rm -f "$out/lib/python3.13/site-packages/blueman/plugins/applet/NMPANSupport.py"
+              rm -f "$out/lib/python3.13/site-packages/blueman/main/NetworkManager.py"
+            '';
+          });
+      microPipewirePackage =
+        (pkgsFor.pipewire.override {
+          ffadoSupport = false;
+          onnxruntimeSupport = false;
+          raopSupport = false;
+          rocSupport = false;
+          vulkanSupport = false;
+          x11Support = false;
+          zeroconfSupport = false;
+        }).overrideAttrs
+          (old: {
+            buildInputs =
+              builtins.filter
+                (
+                  pkg:
+                  !(builtins.elem (lib.getName pkg) [
+                    "avahi"
+                    "fdk-aac"
+                    "ldacBT"
+                    "ffmpeg-headless"
+                    "gst-plugins-base"
+                    "gstreamer"
+                    "libcamera"
+                    "libfreeaptx"
+                    "liblc3"
+                    "libldac-dec"
+                    "libmysofa"
+                    "modemmanager"
+                    "webrtc-audio-processing"
+                  ])
+                )
+                (old.buildInputs or [ ]);
+            mesonFlags =
+              (builtins.filter
+                (
+                  flag:
+                  !(lib.hasPrefix "-Davahi=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-backend-ofono=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-backend-hsphfpd=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-aac=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-aptx=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-backend-native-mm=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-g722=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-lc3=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-ldac=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-ldac-dec=" flag)
+                  && !(lib.hasPrefix "-Dbluez5-codec-opus=" flag)
+                  && !(lib.hasPrefix "-Decho-cancel-webrtc=" flag)
+                  && !(lib.hasPrefix "-Dffmpeg=" flag)
+                  && !(lib.hasPrefix "-Dgstreamer=" flag)
+                  && !(lib.hasPrefix "-Dgstreamer-device-provider=" flag)
+                  && !(lib.hasPrefix "-Dlibcamera=" flag)
+                  && !(lib.hasPrefix "-Dlibmysofa=" flag)
+                  && !(lib.hasPrefix "-Dpipewire-v4l2=" flag)
+                  && !(lib.hasPrefix "-Dpw-cat-ffmpeg=" flag)
+                  && !(lib.hasPrefix "-Dv4l2=" flag)
+                )
+                (old.mesonFlags or [ ]))
+              ++ [
+                (lib.mesonEnable "avahi" false)
+                (lib.mesonEnable "bluez5-backend-ofono" false)
+                (lib.mesonEnable "bluez5-backend-hsphfpd" false)
+                (lib.mesonEnable "bluez5-codec-aac" false)
+                (lib.mesonEnable "bluez5-codec-aptx" false)
+                (lib.mesonEnable "bluez5-backend-native-mm" false)
+                (lib.mesonEnable "bluez5-codec-g722" false)
+                (lib.mesonEnable "bluez5-codec-lc3" false)
+                (lib.mesonEnable "bluez5-codec-ldac" false)
+                (lib.mesonEnable "bluez5-codec-ldac-dec" false)
+                (lib.mesonEnable "bluez5-codec-opus" false)
+                (lib.mesonEnable "echo-cancel-webrtc" false)
+                (lib.mesonEnable "ffmpeg" false)
+                (lib.mesonEnable "gstreamer" false)
+                (lib.mesonEnable "gstreamer-device-provider" false)
+                (lib.mesonEnable "libcamera" false)
+                (lib.mesonEnable "libmysofa" false)
+                (lib.mesonEnable "pipewire-v4l2" false)
+                (lib.mesonEnable "pw-cat-ffmpeg" false)
+                (lib.mesonEnable "v4l2" false)
+              ];
+          });
+      microWireplumberPackage =
+        (pkgsFor.wireplumber.override {
+          enableDocs = false;
+          enableGI = false;
+        }).overrideAttrs
+          (old: {
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgsFor.python3 ];
+          });
       baseCommonModule =
         {
           config,
@@ -895,7 +993,9 @@
           services.pipewire = {
             enable = lib.mkForce true;
             alsa.enable = lib.mkForce true;
+            package = microPipewirePackage;
             pulse.enable = lib.mkForce true;
+            wireplumber.package = microWireplumberPackage;
           };
           services.speechd.enable = lib.mkForce false;
           security.polkit.enable = true;
