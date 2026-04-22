@@ -8,4 +8,4 @@ cd_repo_root
 
 rm -f ./*.raw
 
-exec nix "${NIX_EXPERIMENTAL_FLAGS[@]}" build -v "path:.#nixosConfigurations.myhost-micro-jwm.config.system.build.toplevel"
+exec nix "${NIX_EXPERIMENTAL_FLAGS[@]}" build -v "path:.#nixosConfigurations.myhost-micro-wayfire.config.system.build.toplevel"

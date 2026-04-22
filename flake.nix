@@ -66,7 +66,7 @@
         hostName = "myhost";
         minimalDesktopConfigName = "${hostName}-minimal";
         microOpenboxConfigName = "${hostName}-micro-openbox";
-        microJwmConfigName = "${hostName}-micro-jwm";
+        microWayfireConfigName = "${hostName}-micro-wayfire";
         serverConfigName = "${hostName}-server";
         isoConfigName = "${hostName}-installer";
         locale = "en_US.UTF-8";
@@ -206,8 +206,8 @@
         # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
         imageSize = "1313M";
       };
-      microJwmDiskConfig = diskLayout {
-        imageName = cfg.microJwmConfigName;
+      microWayfireDiskConfig = diskLayout {
+        imageName = cfg.microWayfireConfigName;
         identity = sharedDiskIdentity;
         # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
         imageSize = "1313M";
@@ -550,23 +550,19 @@
         uv
       ];
       microOpenboxSystemPackages = with pkgsFor; [
-        arandr
         curl
         lxappearance
         lxpanel
-        lxrandr
         nano
         obconf
+        openbox
         pcmanfm
         pciutils
         usbutils
       ];
-      microJwmSystemPackages = with pkgsFor; [
-        arandr
+      microWayfireSystemPackages = with pkgsFor; [
         curl
-        jwm-settings-manager
         lxappearance
-        lxrandr
         nano
         pcmanfm
         pciutils
@@ -577,6 +573,42 @@
         git
         htop
       ];
+      microConnmanPackage =
+        (pkgsFor.connman.override {
+          enableBluetooth = false;
+          enableDundee = false;
+          enableGadget = false;
+          enableL2tp = false;
+          enableNeard = false;
+          enableOfono = false;
+          enableOpenconnect = false;
+          enableOpenvpn = false;
+          enablePacrunner = false;
+          enablePptp = false;
+          enableStats = false;
+          enableTools = false;
+          enableVpnc = false;
+          enableWireguard = false;
+          enableWispr = false;
+        }).overrideAttrs
+          (_: {
+            doCheck = false;
+          });
+      microConnmanGtkPackage =
+        (pkgsFor.connman-gtk.override {
+          connman = microConnmanPackage;
+        }).overrideAttrs
+          (old: {
+            buildInputs = builtins.filter (pkg: lib.getName pkg != "openconnect") (old.buildInputs or [ ]);
+            mesonFlags =
+              (builtins.filter
+                (flag: !(lib.hasPrefix "-Duse_openconnect=" flag))
+                (old.mesonFlags or [ ]))
+              ++ [ "-Duse_openconnect=no" ];
+          });
+      microBluemanPackage = pkgsFor.blueman.override {
+        withPulseAudio = true;
+      };
       baseCommonModule =
         {
           config,
@@ -852,18 +884,43 @@
       microDesktopServicesModule =
         { pkgs, lib, ... }:
         {
+          environment.defaultPackages = lib.mkForce [ ];
+          programs.command-not-found.enable = lib.mkForce false;
+
           services.printing.enable = lib.mkForce false;
+          services.accounts-daemon.enable = lib.mkForce false;
           services.udisks2.enable = lib.mkForce false;
           services.gvfs.enable = lib.mkForce false;
           services.pulseaudio.enable = lib.mkForce false;
-          services.pipewire.enable = lib.mkForce false;
+          services.pipewire = {
+            enable = lib.mkForce true;
+            alsa.enable = lib.mkForce true;
+            pulse.enable = lib.mkForce true;
+          };
+          services.speechd.enable = lib.mkForce false;
           security.polkit.enable = true;
-          security.rtkit.enable = lib.mkForce false;
-          networking.networkmanager.enable = true;
-          programs.nm-applet.enable = true;
-          programs.nm-applet.indicator = false;
-          services.blueman.enable = true;
+          security.rtkit.enable = lib.mkForce true;
+          networking.networkmanager.enable = lib.mkForce false;
+          networking.modemmanager.enable = lib.mkForce false;
+          services.connman = {
+            enable = true;
+            enableVPN = false;
+            package = microConnmanPackage;
+            wifi.backend = "iwd";
+          };
+          services.blueman.enable = lib.mkForce false;
           xdg.portal.enable = lib.mkForce false;
+          xdg.autostart.enable = lib.mkForce false;
+          xdg.sounds.enable = lib.mkForce false;
+
+          environment.systemPackages = [
+            microBluemanPackage
+            microConnmanGtkPackage
+          ];
+          services.dbus.packages = [ microBluemanPackage ];
+          systemd.packages = [ microBluemanPackage ];
+
+          fonts.enableDefaultPackages = lib.mkForce false;
 
           hardware.bluetooth = {
             enable = true;
@@ -879,21 +936,17 @@
             };
           };
 
+          hardware.enableRedistributableFirmware = lib.mkForce false;
+          hardware.cpu.intel.updateMicrocode = lib.mkForce false;
+          hardware.cpu.amd.updateMicrocode = lib.mkForce false;
+
           fonts.packages = with pkgs; [ adwaita-fonts ];
         };
       microOpenboxPackagesModule = mkSystemPackagesModule {
         systemPackages = microOpenboxSystemPackages;
-        extraDependencies = [
-          nixpkgs
-          disko
-        ];
       };
-      microJwmPackagesModule = mkSystemPackagesModule {
-        systemPackages = microJwmSystemPackages;
-        extraDependencies = [
-          nixpkgs
-          disko
-        ];
+      microWayfirePackagesModule = mkSystemPackagesModule {
+        systemPackages = microWayfireSystemPackages;
       };
       serverCommonModule =
         { lib, ... }:
@@ -942,38 +995,116 @@
         };
       microOpenboxDesktopModule =
         { pkgs, ... }:
+        let
+          microOpenboxSession = pkgs.symlinkJoin {
+            name = "micro-openbox-session";
+            paths = [
+              (pkgs.writeTextFile {
+                name = "micro-openbox-session-desktop-entry";
+                destination = "/share/xsessions/micro-openbox.desktop";
+                text = ''
+                  [Desktop Entry]
+                  Name=Micro Openbox
+                  Comment=Minimal Openbox desktop with LXPanel
+                  Exec=/etc/xdg/micro-openbox-session
+                  Type=Application
+                  DesktopNames=Openbox
+                '';
+              })
+            ];
+            passthru.providedSessions = [ "micro-openbox" ];
+          };
+        in
         {
-          hardware.graphics.enable = true;
+          hardware.graphics.enable = lib.mkForce false;
 
           services.xserver.enable = true;
-          services.displayManager.defaultSession = "none+openbox";
-          services.xserver.displayManager.lightdm.enable = true;
-          services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
-          services.xserver.windowManager.openbox.enable = true;
+          services.xserver.excludePackages = [ pkgs.xterm ];
+          services.displayManager.defaultSession = "micro-openbox";
+          services.displayManager.ly.enable = true;
+          services.displayManager.sessionPackages = [ microOpenboxSession ];
+
+          environment.etc."xdg/micro-openbox-session" = {
+            mode = "0755";
+            text = ''
+              #!${pkgs.runtimeShell}
+              export XDG_CURRENT_DESKTOP=Openbox
+              export XDG_SESSION_DESKTOP=Openbox
+              export XDG_SESSION_TYPE=x11
+
+              exec ${pkgs.openbox}/bin/openbox-session
+            '';
+          };
 
           environment.etc."xdg/openbox/autostart".text = ''
             ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
             ${pkgs.lxpanel}/bin/lxpanel &
-            ${pkgs.pcmanfm}/bin/pcmanfm --desktop &
-            ${pkgs.networkmanagerapplet}/bin/nm-applet &
-            ${pkgs.blueman}/bin/blueman-applet &
+            ${microConnmanGtkPackage}/bin/connman-gtk --tray &
+            ${microBluemanPackage}/bin/blueman-applet &
           '';
         };
-      microJwmDesktopModule =
+      microWayfireDesktopModule =
         { pkgs, ... }:
+        let
+          wayfirePackage = pkgs.wayfire-with-plugins.override {
+            plugins = with pkgs.wayfirePlugins; [
+              wcm
+              wf-shell
+            ];
+          };
+          microWayfireSession = pkgs.symlinkJoin {
+            name = "micro-wayfire-session";
+            paths = [
+              (pkgs.writeTextFile {
+                name = "micro-wayfire-session-desktop-entry";
+                destination = "/share/wayland-sessions/micro-wayfire.desktop";
+                text = ''
+                  [Desktop Entry]
+                  Name=Micro Wayfire
+                  Comment=Minimal Wayfire desktop with wf-shell
+                  Exec=/etc/xdg/micro-wayfire-session
+                  Type=Application
+                  DesktopNames=Wayfire;wlroots
+                '';
+              })
+            ];
+            passthru.providedSessions = [ "micro-wayfire" ];
+          };
+        in
         {
           hardware.graphics.enable = true;
 
-          services.xserver.enable = true;
-          services.displayManager.defaultSession = "none+jwm";
-          services.xserver.displayManager.lightdm.enable = true;
-          services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
-          services.xserver.windowManager.jwm.enable = true;
-          services.xserver.displayManager.sessionCommands = ''
-            ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
-            ${pkgs.networkmanagerapplet}/bin/nm-applet &
-            ${pkgs.blueman}/bin/blueman-applet &
-            ${pkgs.pcmanfm}/bin/pcmanfm --desktop &
+          services.displayManager.defaultSession = "micro-wayfire";
+          services.displayManager.ly = {
+            enable = true;
+            x11Support = false;
+          };
+          services.displayManager.sessionPackages = [ microWayfireSession ];
+
+          environment.systemPackages = [ wayfirePackage ];
+
+          environment.etc."xdg/micro-wayfire-session" = {
+            mode = "0755";
+            text = ''
+              #!${pkgs.runtimeShell}
+              export XDG_CURRENT_DESKTOP=Wayfire
+              export XDG_SESSION_DESKTOP=Wayfire
+              export XDG_SESSION_TYPE=wayland
+              export GDK_BACKEND=wayland,x11
+              export MOZ_ENABLE_WAYLAND=1
+              export QT_QPA_PLATFORM=wayland
+
+              ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
+              ${microConnmanGtkPackage}/bin/connman-gtk --tray &
+              ${microBluemanPackage}/bin/blueman-applet &
+
+              exec ${wayfirePackage}/bin/wayfire
+            '';
+          };
+
+          environment.etc."xdg/wayfire.ini".text = ''
+            [core]
+            xwayland = false
           '';
         };
       desktopFullModule =
@@ -1398,7 +1529,7 @@
       diskoConfigurations.${cfg.hostName} = diskConfig;
       diskoConfigurations.${cfg.minimalDesktopConfigName} = minimalDiskConfig;
       diskoConfigurations.${cfg.microOpenboxConfigName} = microOpenboxDiskConfig;
-      diskoConfigurations.${cfg.microJwmConfigName} = microJwmDiskConfig;
+      diskoConfigurations.${cfg.microWayfireConfigName} = microWayfireDiskConfig;
       diskoConfigurations.${cfg.serverConfigName} = serverDiskConfig;
 
       nixosConfigurations.${cfg.hostName} = nixpkgs.lib.nixosSystem {
@@ -1445,15 +1576,15 @@
         ];
       };
 
-      nixosConfigurations.${cfg.microJwmConfigName} = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.${cfg.microWayfireConfigName} = nixpkgs.lib.nixosSystem {
         inherit (cfg) system;
         modules = [
           disko.nixosModules.disko
-          microJwmDiskConfig
+          microWayfireDiskConfig
           baseCommonModule
           microDesktopServicesModule
-          microJwmPackagesModule
-          microJwmDesktopModule
+          microWayfirePackagesModule
+          microWayfireDesktopModule
           autoGrowRootModule
           installedSystemModule
         ];
