@@ -861,7 +861,7 @@
         ];
       };
       desktopCommonModule =
-        { ... }:
+        { pkgs, ... }:
         {
           hardware.graphics.enable = true;
 
@@ -870,6 +870,11 @@
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
+
+          environment.systemPackages = with pkgs; [
+            xfce4-whiskermenu-plugin
+            xfce4-xkb-plugin
+          ];
 
           services.picom = {
             enable = true;
@@ -1004,11 +1009,13 @@
                     <value type="int" value="4"/>
                     <value type="int" value="5"/>
                     <value type="int" value="6"/>
+                    <value type="int" value="7"/>
+                    <value type="int" value="8"/>
                   </property>
                 </property>
               </property>
               <property name="plugins" type="empty">
-                <property name="plugin-1" type="string" value="applicationsmenu"/>
+                <property name="plugin-1" type="string" value="whiskermenu"/>
                 <property name="plugin-2" type="string" value="tasklist">
                   <property name="grouping" type="uint" value="0"/>
                 </property>
@@ -1016,11 +1023,13 @@
                   <property name="expand" type="bool" value="true"/>
                   <property name="style" type="uint" value="0"/>
                 </property>
-                <property name="plugin-4" type="string" value="systray">
+                <property name="plugin-4" type="string" value="pulseaudio"/>
+                <property name="plugin-5" type="string" value="systray">
                   <property name="square-icons" type="bool" value="true"/>
                 </property>
-                <property name="plugin-5" type="string" value="clock"/>
-                <property name="plugin-6" type="string" value="actions"/>
+                <property name="plugin-6" type="string" value="xkb"/>
+                <property name="plugin-7" type="string" value="clock"/>
+                <property name="plugin-8" type="string" value="actions"/>
               </property>
             </channel>
           '';
