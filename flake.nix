@@ -980,6 +980,7 @@
 
               stamp_path=${lib.escapeShellArg stampPath}
               expected_root_source=/dev/mapper/${cfg.luks.name}
+              root_part_by_partuuid=/dev/disk/by-partuuid/${sharedDiskIdentity.rootPartUuid}
               root_source=$(findmnt -n -o SOURCE /)
 
               if [ "$root_source" != "$expected_root_source" ]; then
@@ -987,12 +988,16 @@
                 exit 1
               fi
 
-              root_part_kname=$(lsblk -n -o PKNAME "$root_source" | head -n1)
-              if [ -z "$root_part_kname" ]; then
-                echo "root-auto-grow: could not determine encrypted root partition" >&2
+              if [ ! -e "$root_part_by_partuuid" ]; then
+                echo "root-auto-grow: expected root partition symlink $root_part_by_partuuid does not exist" >&2
                 exit 1
               fi
-              root_part="/dev/$root_part_kname"
+
+              root_part=$(readlink -f "$root_part_by_partuuid")
+              if [ -z "$root_part" ] || [ ! -b "$root_part" ]; then
+                echo "root-auto-grow: could not resolve encrypted root partition from $root_part_by_partuuid" >&2
+                exit 1
+              fi
 
               disk_kname=$(lsblk -n -o PKNAME "$root_part" | head -n1)
               if [ -z "$disk_kname" ]; then
