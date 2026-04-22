@@ -204,13 +204,13 @@
         imageName = cfg.microOpenboxConfigName;
         identity = sharedDiskIdentity;
         # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
-        imageSize = "1313M";
+        imageSize = "3G";
       };
       microWayfireDiskConfig = diskLayout {
         imageName = cfg.microWayfireConfigName;
         identity = sharedDiskIdentity;
         # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
-        imageSize = "1313M";
+        imageSize = "3G";
       };
       serverDiskConfig = diskLayout {
         imageName = cfg.serverConfigName;
