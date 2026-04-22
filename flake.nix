@@ -969,6 +969,7 @@
               cryptsetup
               gawk
               parted
+              systemd
               util-linux
             ];
             serviceConfig = {
@@ -1051,7 +1052,19 @@
                 exit 1
               fi
 
-              cryptsetup resize ${cfg.luks.name}
+              if ! cryptsetup resize --batch-mode --token-only ${cfg.luks.name}; then
+                echo "root-auto-grow: cryptsetup resize needs the LUKS passphrase; requesting it interactively" >&2
+                luks_passphrase=$(${pkgs.systemd}/bin/systemd-ask-password --timeout=0 \
+                  "root-auto-grow: enter LUKS passphrase for /dev/mapper/${cfg.luks.name}")
+                if [ -z "$luks_passphrase" ]; then
+                  echo "root-auto-grow: empty passphrase returned by systemd-ask-password" >&2
+                  exit 1
+                fi
+
+                printf '%s' "$luks_passphrase" | cryptsetup resize --batch-mode --key-file - ${cfg.luks.name}
+                unset luks_passphrase
+              fi
+
               btrfs filesystem resize max /
 
               mkdir -p "$(dirname "$stamp_path")"
