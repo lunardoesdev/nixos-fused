@@ -942,96 +942,80 @@
           lib,
           ...
         }:
-        {
-          gtk = {
-            enable = true;
+        let
+          xfceXsettingsSeed = pkgs.writeText "xfce-xsettings.xml" ''
+            <?xml version="1.0" encoding="UTF-8"?>
 
-            font = {
-              name = "Adwaita Sans";
-              size = 11;
-            };
+            <channel name="xsettings" version="1.0">
+              <property name="Net" type="empty">
+                <property name="ThemeName" type="string" value="adw-gtk3"/>
+                <property name="IconThemeName" type="string" value="Adwaita"/>
+              </property>
+              <property name="Gtk" type="empty">
+                <property name="CursorThemeName" type="string" value="Bibata-Modern-Classic"/>
+                <property name="CursorThemeSize" type="int" value="24"/>
+                <property name="FontName" type="string" value="Adwaita Sans 11"/>
+                <property name="MonospaceFontName" type="string" value="Adwaita Mono 11"/>
+              </property>
+              <property name="Xft" type="empty">
+                <property name="Antialias" type="int" value="1"/>
+                <property name="Hinting" type="int" value="1"/>
+                <property name="HintStyle" type="string" value="hintslight"/>
+                <property name="RGBA" type="string" value="rgb"/>
+              </property>
+            </channel>
+          '';
+          xfceKeyboardShortcutsSeed = pkgs.writeText "xfce4-keyboard-shortcuts.xml" ''
+            <?xml version="1.0" encoding="UTF-8"?>
 
-            theme = {
-              name = "adw-gtk3";
-              package = pkgs.adw-gtk3;
-            };
+            <channel name="xfce4-keyboard-shortcuts" version="1.0">
+              <property name="commands" type="empty">
+                <property name="custom" type="empty">
+                  <property name="override" type="bool" value="true"/>
+                  <property name="&lt;Primary&gt;&lt;Alt&gt;t" type="string" value="${pkgs.xfce4-terminal}/bin/xfce4-terminal"/>
+                  <property name="Super_L" type="string" value="${pkgs.xfce4-whiskermenu-plugin}/bin/xfce4-popup-whiskermenu"/>
+                  <property name="&lt;Super&gt;e" type="string" value="${pkgs.thunar}/bin/thunar"/>
+                  <property name="&lt;Super&gt;r" type="string" value="${pkgs.xfce4-appfinder}/bin/xfce4-appfinder -c"/>
+                  <property name="&lt;Super&gt;l" type="string" value="${pkgs.xfce4-session}/bin/xflock4"/>
+                  <property name="Print" type="string" value="${pkgs.xfce4-screenshooter}/bin/xfce4-screenshooter"/>
+                </property>
+              </property>
+              <property name="xfwm4" type="empty">
+                <property name="custom" type="empty">
+                  <property name="&lt;Super&gt;d" type="string" value="show_desktop_key"/>
+                  <property name="&lt;Super&gt;Left" type="string" value="tile_left_key"/>
+                  <property name="&lt;Super&gt;Right" type="string" value="tile_right_key"/>
+                  <property name="&lt;Super&gt;Up" type="string" value="tile_up_key"/>
+                  <property name="&lt;Super&gt;Down" type="string" value="tile_down_key"/>
+                </property>
+              </property>
+            </channel>
+          '';
+          xfceXfwm4Seed = pkgs.writeText "xfwm4.xml" ''
+            <?xml version="1.0" encoding="UTF-8"?>
 
-            iconTheme = {
-              name = "Adwaita";
-              package = pkgs.adwaita-icon-theme;
-            };
+            <channel name="xfwm4" version="1.0">
+              <property name="general" type="empty">
+                <property name="use_compositing" type="bool" value="false"/>
+              </property>
+            </channel>
+          '';
+          xfceThunarSeed = pkgs.writeText "thunar.xml" ''
+            <?xml version="1.0" encoding="UTF-8"?>
 
-            cursorTheme = {
-              name = "Bibata-Modern-Classic";
-              package = pkgs.bibata-cursors;
-              size = 24;
-            };
-          };
-
-          qt = {
-            enable = true;
-            platformTheme.name = "gtk3";
-            style.name = "adwaita";
-          };
-
-          xfconf.settings = {
-            xsettings = {
-              "Net/ThemeName" = "adw-gtk3";
-              "Net/IconThemeName" = "Adwaita";
-              "Gtk/CursorThemeName" = "Bibata-Modern-Classic";
-              "Gtk/CursorThemeSize" = {
-                type = "int";
-                value = 24;
-              };
-              "Gtk/FontName" = "Adwaita Sans 11";
-              "Gtk/MonospaceFontName" = "Adwaita Mono 11";
-              "Xft/Antialias" = 1;
-              "Xft/Hinting" = 1;
-              "Xft/HintStyle" = "hintslight";
-              "Xft/RGBA" = "rgb";
-            };
-
-            xfce4-keyboard-shortcuts = {
-              "commands/custom/override" = true;
-              "commands/custom/<Primary><Alt>t" =
-                "${pkgs.xfce4-terminal}/bin/xfce4-terminal";
-              "commands/custom/Super_L" =
-                "${pkgs.xfce4-whiskermenu-plugin}/bin/xfce4-popup-whiskermenu";
-              "commands/custom/<Super>e" = "${pkgs.thunar}/bin/thunar";
-              "commands/custom/<Super>r" =
-                "${pkgs.xfce4-appfinder}/bin/xfce4-appfinder -c";
-              "commands/custom/<Super>l" = "${pkgs.xfce4-session}/bin/xflock4";
-              "commands/custom/Print" =
-                "${pkgs.xfce4-screenshooter}/bin/xfce4-screenshooter";
-            };
-
-            xfwm4 = {
-              "custom/<Super>d" = "show_desktop_key";
-              "custom/<Super>Left" = "tile_left_key";
-              "custom/<Super>Right" = "tile_right_key";
-              "custom/<Super>Up" = "tile_up_key";
-              "custom/<Super>Down" = "tile_down_key";
-            };
-
-            thunar = {
-              "last-view" = "ThunarDetailsView";
-              "misc-single-click" = false;
-              "misc-folders-first" = true;
-              "misc-middle-click-in-tab" = true;
-              "misc-open-new-window-as-tab" = true;
-              "misc-remember-geometry" = true;
-              "misc-full-path-in-tab-title" = true;
-              "misc-window-title-style" = "full-path-without-suffix";
-            };
-          };
-
-          home.activation.seedXfcePanelConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-            xfce_panel_config="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
-
-            if [ ! -e "$xfce_panel_config" ]; then
-              mkdir -p "$(dirname "$xfce_panel_config")"
-
-              cat > "$xfce_panel_config" <<'EOF'
+            <channel name="thunar" version="1.0">
+              <property name="last-view" type="string" value="ThunarDetailsView"/>
+              <property name="last-side-pane" type="string" value="ThunarShortcutsPane"/>
+              <property name="misc-single-click" type="bool" value="false"/>
+              <property name="misc-folders-first" type="bool" value="true"/>
+              <property name="misc-middle-click-in-tab" type="bool" value="true"/>
+              <property name="misc-open-new-window-as-tab" type="bool" value="true"/>
+              <property name="misc-remember-geometry" type="bool" value="true"/>
+              <property name="misc-full-path-in-tab-title" type="bool" value="true"/>
+              <property name="misc-window-title-style" type="string" value="full-path-without-suffix"/>
+            </channel>
+          '';
+          xfcePanelSeed = pkgs.writeText "xfce4-panel.xml" ''
             <?xml version="1.0" encoding="UTF-8"?>
 
             <channel name="xfce4-panel" version="1.0">
@@ -1075,17 +1059,8 @@
                 <property name="plugin-8" type="string" value="actions"/>
               </property>
             </channel>
-            EOF
-            fi
           '';
-
-          home.activation.seedKeyboardLayoutConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-            keyboard_layout_config="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml"
-
-            if [ ! -e "$keyboard_layout_config" ]; then
-              mkdir -p "$(dirname "$keyboard_layout_config")"
-
-              cat > "$keyboard_layout_config" <<'EOF'
+          xfceKeyboardLayoutSeed = pkgs.writeText "keyboard-layout.xml" ''
             <?xml version="1.0" encoding="UTF-8"?>
 
             <channel name="keyboard-layout" version="1.0">
@@ -1098,8 +1073,65 @@
                 </property>
               </property>
             </channel>
-            EOF
-            fi
+          '';
+        in
+        {
+          gtk = {
+            enable = true;
+
+            font = {
+              name = "Adwaita Sans";
+              size = 11;
+            };
+
+            theme = {
+              name = "adw-gtk3";
+              package = pkgs.adw-gtk3;
+            };
+
+            iconTheme = {
+              name = "Adwaita";
+              package = pkgs.adwaita-icon-theme;
+            };
+
+            cursorTheme = {
+              name = "Bibata-Modern-Classic";
+              package = pkgs.bibata-cursors;
+              size = 24;
+            };
+          };
+
+          qt = {
+            enable = true;
+            platformTheme.name = "gtk3";
+            style.name = "adwaita";
+          };
+
+          home.activation.seedMutableXfceConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            seed_mutable_xfce_file() {
+              src="$1"
+              dst="$2"
+
+              mkdir -p "$(dirname "$dst")"
+
+              if [ -L "$dst" ]; then
+                rm -f "$dst"
+              fi
+
+              if [ ! -e "$dst" ]; then
+                cp "$src" "$dst"
+                chmod u+w "$dst"
+              fi
+            }
+
+            xfce_config_dir="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
+
+            seed_mutable_xfce_file "${xfceXsettingsSeed}" "$xfce_config_dir/xsettings.xml"
+            seed_mutable_xfce_file "${xfceKeyboardShortcutsSeed}" "$xfce_config_dir/xfce4-keyboard-shortcuts.xml"
+            seed_mutable_xfce_file "${xfceXfwm4Seed}" "$xfce_config_dir/xfwm4.xml"
+            seed_mutable_xfce_file "${xfceThunarSeed}" "$xfce_config_dir/thunar.xml"
+            seed_mutable_xfce_file "${xfcePanelSeed}" "$xfce_config_dir/xfce4-panel.xml"
+            seed_mutable_xfce_file "${xfceKeyboardLayoutSeed}" "$xfce_config_dir/keyboard-layout.xml"
           '';
         };
       mkHomeManagerModule =
