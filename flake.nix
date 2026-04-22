@@ -976,6 +976,7 @@
               Type = "oneshot";
               RemainAfterExit = true;
             };
+            restartIfChanged = false;
             script = ''
               set -euo pipefail
 
