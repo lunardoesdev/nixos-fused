@@ -65,8 +65,6 @@
         system = "x86_64-linux";
         hostName = "myhost";
         minimalDesktopConfigName = "${hostName}-minimal";
-        microOpenboxConfigName = "${hostName}-micro-openbox";
-        microWayfireConfigName = "${hostName}-micro-wayfire";
         serverConfigName = "${hostName}-server";
         isoConfigName = "${hostName}-installer";
         locale = "en_US.UTF-8";
@@ -199,18 +197,6 @@
       minimalDiskConfig = diskLayout {
         imageName = cfg.minimalDesktopConfigName;
         identity = sharedDiskIdentity;
-      };
-      microOpenboxDiskConfig = diskLayout {
-        imageName = cfg.microOpenboxConfigName;
-        identity = sharedDiskIdentity;
-        # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
-        imageSize = "3G";
-      };
-      microWayfireDiskConfig = diskLayout {
-        imageName = cfg.microWayfireConfigName;
-        identity = sharedDiskIdentity;
-        # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
-        imageSize = "3G";
       };
       serverDiskConfig = diskLayout {
         imageName = cfg.serverConfigName;
@@ -549,164 +535,11 @@
         usbutils
         uv
       ];
-      microOpenboxSystemPackages = with pkgsFor; [
-        curl
-        lxappearance
-        lxpanel
-        nano
-        obconf
-        openbox
-        pcmanfm
-        pciutils
-        usbutils
-      ];
-      microWayfireSystemPackages = with pkgsFor; [
-        curl
-        lxappearance
-        nano
-        pcmanfm
-        pciutils
-        usbutils
-      ];
       serverSystemPackages = with pkgsFor; [
         curl
         git
         htop
       ];
-      microConnmanPackage =
-        (pkgsFor.connman.override {
-          enableBluetooth = false;
-          enableDundee = false;
-          enableGadget = false;
-          enableL2tp = false;
-          enableNeard = false;
-          enableOfono = false;
-          enableOpenconnect = false;
-          enableOpenvpn = false;
-          enablePacrunner = false;
-          enablePptp = false;
-          enableStats = false;
-          enableTools = false;
-          enableVpnc = false;
-          enableWireguard = false;
-          enableWispr = false;
-        }).overrideAttrs
-          (_: {
-            doCheck = false;
-          });
-      microConnmanGtkPackage =
-        (pkgsFor.connman-gtk.override {
-          connman = microConnmanPackage;
-        }).overrideAttrs
-          (old: {
-            buildInputs = builtins.filter (pkg: lib.getName pkg != "openconnect") (old.buildInputs or [ ]);
-            mesonFlags =
-              (builtins.filter
-                (flag: !(lib.hasPrefix "-Duse_openconnect=" flag))
-                (old.mesonFlags or [ ]))
-              ++ [ "-Duse_openconnect=no" ];
-          });
-      microBluemanPackage =
-        (pkgsFor.blueman.override {
-          withPulseAudio = true;
-        }).overrideAttrs
-          (old: {
-            buildInputs = builtins.filter (pkg: lib.getName pkg != "networkmanager") (old.buildInputs or [ ]);
-            postInstall = (old.postInstall or "") + ''
-              rm -f "$out/lib/python3.13/site-packages/blueman/plugins/applet/NMDUNSupport.py"
-              rm -f "$out/lib/python3.13/site-packages/blueman/plugins/applet/NMPANSupport.py"
-              rm -f "$out/lib/python3.13/site-packages/blueman/main/NetworkManager.py"
-            '';
-          });
-      microPipewirePackage =
-        (pkgsFor.pipewire.override {
-          ffadoSupport = false;
-          onnxruntimeSupport = false;
-          raopSupport = false;
-          rocSupport = false;
-          vulkanSupport = false;
-          x11Support = false;
-          zeroconfSupport = false;
-        }).overrideAttrs
-          (old: {
-            buildInputs =
-              builtins.filter
-                (
-                  pkg:
-                  !(builtins.elem (lib.getName pkg) [
-                    "avahi"
-                    "fdk-aac"
-                    "ldacBT"
-                    "ffmpeg-headless"
-                    "gst-plugins-base"
-                    "gstreamer"
-                    "libcamera"
-                    "libfreeaptx"
-                    "liblc3"
-                    "libldac-dec"
-                    "libmysofa"
-                    "modemmanager"
-                    "webrtc-audio-processing"
-                  ])
-                )
-                (old.buildInputs or [ ]);
-            mesonFlags =
-              (builtins.filter
-                (
-                  flag:
-                  !(lib.hasPrefix "-Davahi=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-backend-ofono=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-backend-hsphfpd=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-aac=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-aptx=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-backend-native-mm=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-g722=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-lc3=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-ldac=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-ldac-dec=" flag)
-                  && !(lib.hasPrefix "-Dbluez5-codec-opus=" flag)
-                  && !(lib.hasPrefix "-Decho-cancel-webrtc=" flag)
-                  && !(lib.hasPrefix "-Dffmpeg=" flag)
-                  && !(lib.hasPrefix "-Dgstreamer=" flag)
-                  && !(lib.hasPrefix "-Dgstreamer-device-provider=" flag)
-                  && !(lib.hasPrefix "-Dlibcamera=" flag)
-                  && !(lib.hasPrefix "-Dlibmysofa=" flag)
-                  && !(lib.hasPrefix "-Dpipewire-v4l2=" flag)
-                  && !(lib.hasPrefix "-Dpw-cat-ffmpeg=" flag)
-                  && !(lib.hasPrefix "-Dv4l2=" flag)
-                )
-                (old.mesonFlags or [ ]))
-              ++ [
-                (lib.mesonEnable "avahi" false)
-                (lib.mesonEnable "bluez5-backend-ofono" false)
-                (lib.mesonEnable "bluez5-backend-hsphfpd" false)
-                (lib.mesonEnable "bluez5-codec-aac" false)
-                (lib.mesonEnable "bluez5-codec-aptx" false)
-                (lib.mesonEnable "bluez5-backend-native-mm" false)
-                (lib.mesonEnable "bluez5-codec-g722" false)
-                (lib.mesonEnable "bluez5-codec-lc3" false)
-                (lib.mesonEnable "bluez5-codec-ldac" false)
-                (lib.mesonEnable "bluez5-codec-ldac-dec" false)
-                (lib.mesonEnable "bluez5-codec-opus" false)
-                (lib.mesonEnable "echo-cancel-webrtc" false)
-                (lib.mesonEnable "ffmpeg" false)
-                (lib.mesonEnable "gstreamer" false)
-                (lib.mesonEnable "gstreamer-device-provider" false)
-                (lib.mesonEnable "libcamera" false)
-                (lib.mesonEnable "libmysofa" false)
-                (lib.mesonEnable "pipewire-v4l2" false)
-                (lib.mesonEnable "pw-cat-ffmpeg" false)
-                (lib.mesonEnable "v4l2" false)
-              ];
-          });
-      microWireplumberPackage =
-        (pkgsFor.wireplumber.override {
-          enableDocs = false;
-          enableGI = false;
-        }).overrideAttrs
-          (old: {
-            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgsFor.python3 ];
-          });
       baseCommonModule =
         {
           config,
@@ -979,75 +812,6 @@
           disko
         ];
       };
-      microDesktopServicesModule =
-        { pkgs, lib, ... }:
-        {
-          environment.defaultPackages = lib.mkForce [ ];
-          programs.command-not-found.enable = lib.mkForce false;
-
-          services.printing.enable = lib.mkForce false;
-          services.accounts-daemon.enable = lib.mkForce false;
-          services.udisks2.enable = lib.mkForce false;
-          services.gvfs.enable = lib.mkForce false;
-          services.pulseaudio.enable = lib.mkForce false;
-          services.pipewire = {
-            enable = lib.mkForce true;
-            alsa.enable = lib.mkForce true;
-            package = microPipewirePackage;
-            pulse.enable = lib.mkForce true;
-            wireplumber.package = microWireplumberPackage;
-          };
-          services.speechd.enable = lib.mkForce false;
-          security.polkit.enable = true;
-          security.rtkit.enable = lib.mkForce true;
-          networking.networkmanager.enable = lib.mkForce false;
-          networking.modemmanager.enable = lib.mkForce false;
-          services.connman = {
-            enable = true;
-            enableVPN = false;
-            package = microConnmanPackage;
-            wifi.backend = "iwd";
-          };
-          services.blueman.enable = lib.mkForce false;
-          xdg.portal.enable = lib.mkForce false;
-          xdg.autostart.enable = lib.mkForce false;
-          xdg.sounds.enable = lib.mkForce false;
-
-          environment.systemPackages = [
-            microBluemanPackage
-            microConnmanGtkPackage
-          ];
-          services.dbus.packages = [ microBluemanPackage ];
-          systemd.packages = [ microBluemanPackage ];
-
-          fonts.enableDefaultPackages = lib.mkForce false;
-
-          hardware.bluetooth = {
-            enable = true;
-            powerOnBoot = true;
-            settings = {
-              General = {
-                Experimental = true;
-                FastConnectable = false;
-              };
-              Policy = {
-                AutoEnable = true;
-              };
-            };
-          };
-
-          hardware.enableRedistributableFirmware = lib.mkForce false;
-          hardware.cpu.intel.updateMicrocode = lib.mkForce false;
-          hardware.cpu.amd.updateMicrocode = lib.mkForce false;
-
-          fonts.packages = with pkgs; [ adwaita-fonts ];
-        };
-      microOpenboxPackagesModule = mkSystemPackagesModule {
-        systemPackages = microOpenboxSystemPackages;
-      };
-      microWayfirePackagesModule = mkSystemPackagesModule {
-        systemPackages = microWayfireSystemPackages;
-      };
       serverCommonModule =
         { lib, ... }:
         {
@@ -1092,120 +856,6 @@
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
-        };
-      microOpenboxDesktopModule =
-        { pkgs, ... }:
-        let
-          microOpenboxSession = pkgs.symlinkJoin {
-            name = "micro-openbox-session";
-            paths = [
-              (pkgs.writeTextFile {
-                name = "micro-openbox-session-desktop-entry";
-                destination = "/share/xsessions/micro-openbox.desktop";
-                text = ''
-                  [Desktop Entry]
-                  Name=Micro Openbox
-                  Comment=Minimal Openbox desktop with LXPanel
-                  Exec=/etc/xdg/micro-openbox-session
-                  Type=Application
-                  DesktopNames=Openbox
-                '';
-              })
-            ];
-            passthru.providedSessions = [ "micro-openbox" ];
-          };
-        in
-        {
-          hardware.graphics.enable = lib.mkForce false;
-
-          services.xserver.enable = true;
-          services.xserver.excludePackages = [ pkgs.xterm ];
-          services.displayManager.defaultSession = "micro-openbox";
-          services.displayManager.ly.enable = true;
-          services.displayManager.sessionPackages = [ microOpenboxSession ];
-
-          environment.etc."xdg/micro-openbox-session" = {
-            mode = "0755";
-            text = ''
-              #!${pkgs.runtimeShell}
-              export XDG_CURRENT_DESKTOP=Openbox
-              export XDG_SESSION_DESKTOP=Openbox
-              export XDG_SESSION_TYPE=x11
-
-              exec ${pkgs.openbox}/bin/openbox-session
-            '';
-          };
-
-          environment.etc."xdg/openbox/autostart".text = ''
-            ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
-            ${pkgs.lxpanel}/bin/lxpanel &
-            ${microConnmanGtkPackage}/bin/connman-gtk --tray &
-            ${microBluemanPackage}/bin/blueman-applet &
-          '';
-        };
-      microWayfireDesktopModule =
-        { pkgs, ... }:
-        let
-          wayfirePackage = pkgs.wayfire-with-plugins.override {
-            plugins = with pkgs.wayfirePlugins; [
-              wcm
-              wf-shell
-            ];
-          };
-          microWayfireSession = pkgs.symlinkJoin {
-            name = "micro-wayfire-session";
-            paths = [
-              (pkgs.writeTextFile {
-                name = "micro-wayfire-session-desktop-entry";
-                destination = "/share/wayland-sessions/micro-wayfire.desktop";
-                text = ''
-                  [Desktop Entry]
-                  Name=Micro Wayfire
-                  Comment=Minimal Wayfire desktop with wf-shell
-                  Exec=/etc/xdg/micro-wayfire-session
-                  Type=Application
-                  DesktopNames=Wayfire;wlroots
-                '';
-              })
-            ];
-            passthru.providedSessions = [ "micro-wayfire" ];
-          };
-        in
-        {
-          hardware.graphics.enable = true;
-
-          services.displayManager.defaultSession = "micro-wayfire";
-          services.displayManager.ly = {
-            enable = true;
-            x11Support = false;
-          };
-          services.displayManager.sessionPackages = [ microWayfireSession ];
-
-          environment.systemPackages = [ wayfirePackage ];
-
-          environment.etc."xdg/micro-wayfire-session" = {
-            mode = "0755";
-            text = ''
-              #!${pkgs.runtimeShell}
-              export XDG_CURRENT_DESKTOP=Wayfire
-              export XDG_SESSION_DESKTOP=Wayfire
-              export XDG_SESSION_TYPE=wayland
-              export GDK_BACKEND=wayland,x11
-              export MOZ_ENABLE_WAYLAND=1
-              export QT_QPA_PLATFORM=wayland
-
-              ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
-              ${microConnmanGtkPackage}/bin/connman-gtk --tray &
-              ${microBluemanPackage}/bin/blueman-applet &
-
-              exec ${wayfirePackage}/bin/wayfire
-            '';
-          };
-
-          environment.etc."xdg/wayfire.ini".text = ''
-            [core]
-            xwayland = false
-          '';
         };
       desktopFullModule =
         { lib, ... }:
@@ -1628,8 +1278,6 @@
     {
       diskoConfigurations.${cfg.hostName} = diskConfig;
       diskoConfigurations.${cfg.minimalDesktopConfigName} = minimalDiskConfig;
-      diskoConfigurations.${cfg.microOpenboxConfigName} = microOpenboxDiskConfig;
-      diskoConfigurations.${cfg.microWayfireConfigName} = microWayfireDiskConfig;
       diskoConfigurations.${cfg.serverConfigName} = serverDiskConfig;
 
       nixosConfigurations.${cfg.hostName} = nixpkgs.lib.nixosSystem {
@@ -1657,34 +1305,6 @@
           minimalDesktopServicesModule
           minimalDesktopPackagesModule
           desktopCommonModule
-          autoGrowRootModule
-          installedSystemModule
-        ];
-      };
-
-      nixosConfigurations.${cfg.microOpenboxConfigName} = nixpkgs.lib.nixosSystem {
-        inherit (cfg) system;
-        modules = [
-          disko.nixosModules.disko
-          microOpenboxDiskConfig
-          baseCommonModule
-          microDesktopServicesModule
-          microOpenboxPackagesModule
-          microOpenboxDesktopModule
-          autoGrowRootModule
-          installedSystemModule
-        ];
-      };
-
-      nixosConfigurations.${cfg.microWayfireConfigName} = nixpkgs.lib.nixosSystem {
-        inherit (cfg) system;
-        modules = [
-          disko.nixosModules.disko
-          microWayfireDiskConfig
-          baseCommonModule
-          microDesktopServicesModule
-          microWayfirePackagesModule
-          microWayfireDesktopModule
           autoGrowRootModule
           installedSystemModule
         ];
