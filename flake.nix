@@ -946,7 +946,7 @@
           hardware.graphics.enable = true;
 
           services.xserver.enable = true;
-          services.displayManager.defaultSession = "openbox";
+          services.displayManager.defaultSession = "none+openbox";
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.windowManager.openbox.enable = true;
@@ -965,7 +965,7 @@
           hardware.graphics.enable = true;
 
           services.xserver.enable = true;
-          services.displayManager.defaultSession = "jwm";
+          services.displayManager.defaultSession = "none+jwm";
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.windowManager.jwm.enable = true;
