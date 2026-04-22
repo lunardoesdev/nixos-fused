@@ -986,6 +986,37 @@
               "Xft/HintStyle" = "hintslight";
               "Xft/RGBA" = "rgb";
             };
+
+            xfce4-keyboard-shortcuts = {
+              "commands/custom/override" = true;
+              "commands/custom/Super_L" =
+                "${pkgs.xfce4-whiskermenu-plugin}/bin/xfce4-popup-whiskermenu";
+              "commands/custom/<Super>e" = "${pkgs.thunar}/bin/thunar";
+              "commands/custom/<Super>r" =
+                "${pkgs.xfce4-appfinder}/bin/xfce4-appfinder -c";
+              "commands/custom/<Super>l" = "${pkgs.xfce4-session}/bin/xflock4";
+              "commands/custom/Print" =
+                "${pkgs.xfce4-screenshooter}/bin/xfce4-screenshooter";
+            };
+
+            xfwm4 = {
+              "custom/<Super>d" = "show_desktop_key";
+              "custom/<Super>Left" = "tile_left_key";
+              "custom/<Super>Right" = "tile_right_key";
+              "custom/<Super>Up" = "tile_up_key";
+              "custom/<Super>Down" = "tile_down_key";
+            };
+
+            thunar = {
+              "last-view" = "ThunarDetailsView";
+              "misc-single-click" = false;
+              "misc-folders-first" = true;
+              "misc-middle-click-in-tab" = true;
+              "misc-open-new-window-as-tab" = true;
+              "misc-remember-geometry" = true;
+              "misc-full-path-in-tab-title" = true;
+              "misc-window-title-style" = "full-path-without-suffix";
+            };
           };
 
           xdg.configFile."xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml".text = ''
