@@ -1025,7 +1025,13 @@
             };
           };
 
-          xdg.configFile."xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml".text = ''
+          home.activation.seedXfcePanelConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            xfce_panel_config="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
+
+            if [ ! -e "$xfce_panel_config" ]; then
+              mkdir -p "$(dirname "$xfce_panel_config")"
+
+              cat > "$xfce_panel_config" <<'EOF'
             <?xml version="1.0" encoding="UTF-8"?>
 
             <channel name="xfce4-panel" version="1.0">
@@ -1069,6 +1075,8 @@
                 <property name="plugin-8" type="string" value="actions"/>
               </property>
             </channel>
+            EOF
+            fi
           '';
 
           home.activation.seedKeyboardLayoutConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
