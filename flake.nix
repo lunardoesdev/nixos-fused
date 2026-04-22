@@ -937,7 +937,11 @@
         };
       homeManagerRootModule = { ... }: { };
       homeManagerUserModule =
-        { pkgs, ... }:
+        {
+          pkgs,
+          lib,
+          ...
+        }:
         {
           gtk = {
             enable = true;
@@ -1065,6 +1069,29 @@
                 <property name="plugin-8" type="string" value="actions"/>
               </property>
             </channel>
+          '';
+
+          home.activation.seedKeyboardLayoutConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            keyboard_layout_config="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml"
+
+            if [ ! -e "$keyboard_layout_config" ]; then
+              mkdir -p "$(dirname "$keyboard_layout_config")"
+
+              cat > "$keyboard_layout_config" <<'EOF'
+            <?xml version="1.0" encoding="UTF-8"?>
+
+            <channel name="keyboard-layout" version="1.0">
+              <property name="Default" type="empty">
+                <property name="XkbDisable" type="bool" value="false"/>
+                <property name="XkbLayout" type="string" value="us"/>
+                <property name="XkbVariant" type="string" value=""/>
+                <property name="XkbOptions" type="empty">
+                  <property name="Group" type="string" value="grp:alt_shift_toggle"/>
+                </property>
+              </property>
+            </channel>
+            EOF
+            fi
           '';
         };
       mkHomeManagerModule =
