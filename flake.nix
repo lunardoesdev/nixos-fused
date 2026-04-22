@@ -983,6 +983,7 @@
               stamp_path=${lib.escapeShellArg stampPath}
               expected_root_source=/dev/mapper/${cfg.luks.name}
               root_part_by_partuuid=/dev/disk/by-partuuid/${sharedDiskIdentity.rootPartUuid}
+              configured_luks_password=${if cfg.luks.password == null then "''" else lib.escapeShellArg cfg.luks.password}
               root_source=$(findmnt -n -o SOURCE /)
 
               if [ "$root_source" != "$expected_root_source" ]; then
@@ -1053,7 +1054,11 @@
                 exit 1
               fi
 
-              if ! cryptsetup resize --batch-mode --token-only ${cfg.luks.name}; then
+              if [ -n "$configured_luks_password" ]; then
+                echo "root-auto-grow: using configured LUKS password for cryptsetup resize" >&2
+                printf '%s' "$configured_luks_password" | cryptsetup resize --batch-mode --key-file - ${cfg.luks.name}
+                unset configured_luks_password
+              else
                 echo "root-auto-grow: cryptsetup resize needs the LUKS passphrase; requesting it interactively" >&2
                 luks_passphrase=$(${pkgs.systemd}/bin/systemd-ask-password --timeout=0 \
                   "root-auto-grow: enter LUKS passphrase for /dev/mapper/${cfg.luks.name}")
