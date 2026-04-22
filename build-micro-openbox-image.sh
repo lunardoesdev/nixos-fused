@@ -8,4 +8,5 @@ cd_repo_root
 
 rm -f ./*.raw
 
-exec nix "${NIX_EXPERIMENTAL_FLAGS[@]}" build -v "path:.#nixosConfigurations.myhost-server.config.system.build.toplevel"
+nix "${NIX_EXPERIMENTAL_FLAGS[@]}" build -v "path:.#nixosConfigurations.myhost-micro-openbox.config.system.build.diskoImagesScript"
+exec ./result

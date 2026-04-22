@@ -42,6 +42,8 @@ Use `sudo` only for commands that modify the running system or touch real block
 devices.
 
 If you prefer wrappers over long flake paths, use the top-level helpers such as
+`./build-micro-openbox-image.sh`, `./build-micro-openbox-system-closure.sh`,
+`./build-micro-jwm-image.sh`, `./build-micro-jwm-system-closure.sh`,
 `./build-minimal-gui-image.sh`, `./build-minimal-gui-system-closure.sh`,
 `./build-server-image.sh`, `./build-server-system-closure.sh`, and
 `./build-live-iso.sh`.
@@ -62,6 +64,18 @@ Build the minimal graphical desktop system:
 
 ```bash
 nix build path:.#nixosConfigurations.myhost-minimal.config.system.build.toplevel
+```
+
+Build the micro Openbox graphical desktop system:
+
+```bash
+nix build path:.#nixosConfigurations.myhost-micro-openbox.config.system.build.toplevel
+```
+
+Build the micro JWM graphical desktop system:
+
+```bash
+nix build path:.#nixosConfigurations.myhost-micro-jwm.config.system.build.toplevel
 ```
 
 Enter any development shell:
@@ -575,11 +589,13 @@ $NES_EMULATOR ./hello.nes
 - The main tunables live near the top of `flake.nix` in the `cfg` attrset: host name, disk/image settings, locale, LUKS name, swap size, and default user settings.
 - The full desktop profile and installer wire Home Manager in through the NixOS module, so rebuilding those targets also builds the root and user home configurations.
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
-- The graphical profiles use X11 + LightDM + Xfce. The full desktop and installer also enable `picom`, while `myhost-minimal` omits it.
-- The flake now exposes three installed-system fragments: `myhost` for the full desktop profile, `myhost-minimal` for a lean Xfce desktop profile, and `myhost-server` for the minimal server profile.
+- The graphical profiles use X11 + LightDM. `myhost` and `myhost-minimal` use Xfce, `myhost-micro-openbox` uses Openbox with LXPanel and PCManFM, and `myhost-micro-jwm` uses JWM with its built-in panel/taskbar. The full desktop and installer also enable `picom`.
+- The flake now exposes five installed-system fragments: `myhost` for the full desktop profile, `myhost-minimal` for a lean Xfce desktop profile, `myhost-micro-openbox` for the smaller Openbox-based profile, `myhost-micro-jwm` for the smaller JWM-based profile, and `myhost-server` for the minimal server profile.
 - The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z88dk`, and `nes` dev shells.
 - The full desktop profile and installer also install those toolchains into the system closure and add them to `system.extraDependencies`, so they stay available offline on those heavier targets.
 - `myhost-minimal` keeps Xfce, LightDM, generic graphics support, PipeWire audio, NetworkManager with `nm-applet`, Bluetooth with Blueman, `clash-verge`, `brave`, `uv`, and a small CLI package set, but skips Home Manager, the broader dev toolchain set, the large desktop app bundle, and the extra proxy/network services.
+- `myhost-micro-openbox` keeps LightDM, Openbox, LXPanel, PCManFM, `obconf`, `lxappearance`, `lxrandr`, NetworkManager with `nm-applet`, Bluetooth with Blueman, and Polkit. It drops audio, GVFS, UDisks2, portals, Home Manager, the dev toolchain sets, and the broader desktop app bundle.
+- `myhost-micro-jwm` keeps LightDM, JWM, `jwm-settings-manager`, PCManFM, `lxappearance`, `lxrandr`, NetworkManager with `nm-applet`, Bluetooth with Blueman, and Polkit. It drops audio, GVFS, UDisks2, portals, Home Manager, the dev toolchain sets, and the broader desktop app bundle.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
 - `myhost-server` reuses the same `secrets.toml` values for the hostname, users, passwords, target disk, and LUKS settings, but drops the desktop/audio/Bluetooth/app stack and skips Home Manager.
 - `myhost-server` uses the same Limine-based boot path as the desktop profile, enables OpenSSH, opens port 22 in the firewall, keeps DHCP on by default, and adds `qemu-guest` support for more typical VPS environments.
@@ -601,6 +617,7 @@ $NES_EMULATOR ./hello.nes
 - For a one-session runtime test without rebuilding, run `systemctl --user stop picom.service` after login.
 - `/boot` stays unencrypted so Limine can load the kernel and initrd, and the initrd then prompts for the LUKS passphrase to unlock `/`.
 - The minimal desktop Disko image output is named `myhost-minimal.raw` and defaults to `30G`.
+- The micro desktop Disko image outputs are named `myhost-micro-openbox.raw` and `myhost-micro-jwm.raw`. Both use a `1313M` raw disk image, which leaves about `800M` for the encrypted root partition after the 1 MiB BIOS partition and 512 MiB EFI partition.
 - GPT partition UUIDs, the ESP FAT volume ID, the LUKS UUID, and the Btrfs UUID are pinned deterministically and shared across the desktop, minimal desktop, and server outputs.
 - The Disko image is a fixed-size raw disk image. If it still feels too large, reduce `imageSize` in `flake.nix`, or switch Disko's image builder to `qcow2` if you only need a VM image.
 - The standard `system.build.images.qemu-efi` path is not compatible with this layout because that image module expects an `ext4` root filesystem, while this configuration uses Disko-managed `btrfs`.

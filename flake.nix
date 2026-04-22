@@ -65,6 +65,8 @@
         system = "x86_64-linux";
         hostName = "myhost";
         minimalDesktopConfigName = "${hostName}-minimal";
+        microOpenboxConfigName = "${hostName}-micro-openbox";
+        microJwmConfigName = "${hostName}-micro-jwm";
         serverConfigName = "${hostName}-server";
         isoConfigName = "${hostName}-installer";
         locale = "en_US.UTF-8";
@@ -197,6 +199,18 @@
       minimalDiskConfig = diskLayout {
         imageName = cfg.minimalDesktopConfigName;
         identity = sharedDiskIdentity;
+      };
+      microOpenboxDiskConfig = diskLayout {
+        imageName = cfg.microOpenboxConfigName;
+        identity = sharedDiskIdentity;
+        # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
+        imageSize = "1313M";
+      };
+      microJwmDiskConfig = diskLayout {
+        imageName = cfg.microJwmConfigName;
+        identity = sharedDiskIdentity;
+        # 1 MiB BIOS + 512 MiB EFI + about 800 MiB encrypted root budget.
+        imageSize = "1313M";
       };
       serverDiskConfig = diskLayout {
         imageName = cfg.serverConfigName;
@@ -535,6 +549,29 @@
         usbutils
         uv
       ];
+      microOpenboxSystemPackages = with pkgsFor; [
+        arandr
+        curl
+        lxappearance
+        lxpanel
+        lxrandr
+        nano
+        obconf
+        pcmanfm
+        pciutils
+        usbutils
+      ];
+      microJwmSystemPackages = with pkgsFor; [
+        arandr
+        curl
+        jwm-settings-manager
+        lxappearance
+        lxrandr
+        nano
+        pcmanfm
+        pciutils
+        usbutils
+      ];
       serverSystemPackages = with pkgsFor; [
         curl
         git
@@ -812,6 +849,52 @@
           disko
         ];
       };
+      microDesktopServicesModule =
+        { pkgs, lib, ... }:
+        {
+          services.printing.enable = lib.mkForce false;
+          services.udisks2.enable = lib.mkForce false;
+          services.gvfs.enable = lib.mkForce false;
+          services.pulseaudio.enable = lib.mkForce false;
+          services.pipewire.enable = lib.mkForce false;
+          security.polkit.enable = true;
+          security.rtkit.enable = lib.mkForce false;
+          networking.networkmanager.enable = true;
+          programs.nm-applet.enable = true;
+          programs.nm-applet.indicator = false;
+          services.blueman.enable = true;
+          xdg.portal.enable = lib.mkForce false;
+
+          hardware.bluetooth = {
+            enable = true;
+            powerOnBoot = true;
+            settings = {
+              General = {
+                Experimental = true;
+                FastConnectable = false;
+              };
+              Policy = {
+                AutoEnable = true;
+              };
+            };
+          };
+
+          fonts.packages = with pkgs; [ adwaita-fonts ];
+        };
+      microOpenboxPackagesModule = mkSystemPackagesModule {
+        systemPackages = microOpenboxSystemPackages;
+        extraDependencies = [
+          nixpkgs
+          disko
+        ];
+      };
+      microJwmPackagesModule = mkSystemPackagesModule {
+        systemPackages = microJwmSystemPackages;
+        extraDependencies = [
+          nixpkgs
+          disko
+        ];
+      };
       serverCommonModule =
         { lib, ... }:
         {
@@ -856,6 +939,42 @@
           services.xserver.displayManager.lightdm.enable = true;
           services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
           services.xserver.desktopManager.xfce.enable = true;
+        };
+      microOpenboxDesktopModule =
+        { pkgs, ... }:
+        {
+          hardware.graphics.enable = true;
+
+          services.xserver.enable = true;
+          services.displayManager.defaultSession = "openbox";
+          services.xserver.displayManager.lightdm.enable = true;
+          services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
+          services.xserver.windowManager.openbox.enable = true;
+
+          environment.etc."xdg/openbox/autostart".text = ''
+            ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
+            ${pkgs.lxpanel}/bin/lxpanel &
+            ${pkgs.pcmanfm}/bin/pcmanfm --desktop &
+            ${pkgs.networkmanagerapplet}/bin/nm-applet &
+            ${pkgs.blueman}/bin/blueman-applet &
+          '';
+        };
+      microJwmDesktopModule =
+        { pkgs, ... }:
+        {
+          hardware.graphics.enable = true;
+
+          services.xserver.enable = true;
+          services.displayManager.defaultSession = "jwm";
+          services.xserver.displayManager.lightdm.enable = true;
+          services.xserver.displayManager.lightdm.greeters.gtk.enable = true;
+          services.xserver.windowManager.jwm.enable = true;
+          services.xserver.displayManager.sessionCommands = ''
+            ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
+            ${pkgs.networkmanagerapplet}/bin/nm-applet &
+            ${pkgs.blueman}/bin/blueman-applet &
+            ${pkgs.pcmanfm}/bin/pcmanfm --desktop &
+          '';
         };
       desktopFullModule =
         { lib, ... }:
@@ -1278,6 +1397,8 @@
     {
       diskoConfigurations.${cfg.hostName} = diskConfig;
       diskoConfigurations.${cfg.minimalDesktopConfigName} = minimalDiskConfig;
+      diskoConfigurations.${cfg.microOpenboxConfigName} = microOpenboxDiskConfig;
+      diskoConfigurations.${cfg.microJwmConfigName} = microJwmDiskConfig;
       diskoConfigurations.${cfg.serverConfigName} = serverDiskConfig;
 
       nixosConfigurations.${cfg.hostName} = nixpkgs.lib.nixosSystem {
@@ -1305,6 +1426,34 @@
           minimalDesktopServicesModule
           minimalDesktopPackagesModule
           desktopCommonModule
+          autoGrowRootModule
+          installedSystemModule
+        ];
+      };
+
+      nixosConfigurations.${cfg.microOpenboxConfigName} = nixpkgs.lib.nixosSystem {
+        inherit (cfg) system;
+        modules = [
+          disko.nixosModules.disko
+          microOpenboxDiskConfig
+          baseCommonModule
+          microDesktopServicesModule
+          microOpenboxPackagesModule
+          microOpenboxDesktopModule
+          autoGrowRootModule
+          installedSystemModule
+        ];
+      };
+
+      nixosConfigurations.${cfg.microJwmConfigName} = nixpkgs.lib.nixosSystem {
+        inherit (cfg) system;
+        modules = [
+          disko.nixosModules.disko
+          microJwmDiskConfig
+          baseCommonModule
+          microDesktopServicesModule
+          microJwmPackagesModule
+          microJwmDesktopModule
           autoGrowRootModule
           installedSystemModule
         ];
