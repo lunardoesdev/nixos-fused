@@ -452,17 +452,11 @@
         djgpp
         pkgsFor."dosbox-staging"
       ] ++ commonBuildTools;
-      z88dkPackage = pkgsFor.z88dk.overrideAttrs (old: {
-        hardeningDisable = (old.hardeningDisable or [ ]) ++ [ "fortify" ];
-        doCheck = false;
-      });
-      z88dkDevPackages = with pkgsFor; [
+      z80DevPackages = with pkgsFor; [
         python3
-        z88dkPackage
+        sdcc
+        sjasmplus
       ] ++ commonBuildTools;
-      z88dkShellHook = ''
-        export Z88DK_ROOT="${z88dkPackage}"
-      '';
       nesDevPackages = with pkgsFor; [
         cc65
       ] ++ commonBuildTools;
@@ -480,7 +474,6 @@
         ++ stm32DevPackages
         ++ avrDevPackages
         ++ rpiDevPackages
-        ++ z88dkDevPackages
         ++ nesDevPackages
       );
       commonAppPackages = [
@@ -1662,9 +1655,8 @@
           shellHook = dosShellHook;
         };
 
-        z88dk = pkgsFor.mkShell {
-          packages = z88dkDevPackages;
-          shellHook = z88dkShellHook;
+        z80 = pkgsFor.mkShell {
+          packages = z80DevPackages;
         };
 
         nes = pkgsFor.mkShell {

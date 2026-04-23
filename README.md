@@ -532,26 +532,27 @@ $CC hello.c -o HELLO.EXE
 $DOSBOX -c "mount c ." -c "c:" -c "HELLO.EXE" -c "exit"
 ```
 
-### `z88dk`
+### `z80`
 
-Use this shell for Z80 and 8-bit homebrew projects that target the `z88dk`
-toolchain. It exports `Z88DK_ROOT` and is primarily build-focused.
+Use this shell for Z80 and 8-bit homebrew projects with a lighter toolchain
+based on `sdcc` and `sjasmplus`.
 
 Start it with:
 
 ```bash
-nix develop path:.#z88dk
+nix develop path:.#z80
 ```
 
-Example build loop for ZX Spectrum:
+Example compile/assemble loop for ZX Spectrum style projects:
 
 ```bash
-zcc +zx -vn -startup=31 hello.c -o hello -create-app
+sdcc -mz80 --code-loc 0x8000 --data-loc 0xC000 -c hello.c
+sjasmplus loader.asm
 ```
 
-The resulting tape, snapshot, or binary image should then be opened in your
-target emulator or on real hardware. This shell focuses on the compiler and
-packaging toolchain rather than bundling a single preferred emulator.
+The resulting binary, tape, or snapshot image can then be opened in your target
+emulator or on real hardware. This shell stays build-focused and avoids the
+heavier `z88dk` toolchain.
 
 ### `nes`
 
@@ -578,7 +579,7 @@ $NES_EMULATOR ./hello.nes
 - `flake.nix` now has one shared Home Manager module plus separate root-only and user-only Home Manager modules layered on top of it.
 - The graphical installed-system profiles are `myhost` for the full desktop and `myhost-minimal` for the leaner Xfce desktop. All Xfce-based desktop outputs enable `picom`.
 - The flake now exposes three installed-system fragments: `myhost` for the full desktop profile, `myhost-minimal` for a lean Xfce desktop profile, and `myhost-server` for the minimal server profile.
-- The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z88dk`, and `nes` dev shells.
+- The flake now exposes `native`, `hello`, `web`, `mingw`, `gba`, `android`, `embedded`, `firmware`, `stm32`, `avr`, `rpi`, `dos`, `z80`, and `nes` dev shells.
 - The full desktop profile and installer also install those toolchains into the system closure and add them to `system.extraDependencies`, so they stay available offline on those heavier targets.
 - `myhost-minimal` keeps Xfce, LightDM, generic graphics support, PipeWire audio, NetworkManager with `nm-applet`, Bluetooth with Blueman, `clash-verge`, `brave`, `uv`, Home Manager-driven desktop settings, and a small CLI package set, but skips the broader dev toolchain set, the large desktop app bundle, and the extra proxy/network services.
 - The Android shell exports `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`, `ANDROID_NDK_LATEST_HOME`, `ANDROID_BUILD_TOOLS_VERSION`, `ANDROID_PLATFORM_VERSION`, and `JAVA_HOME`.
