@@ -276,6 +276,9 @@
       avrPrefix = avrCrossCc.targetPrefix;
       rpiCrossCc = pkgsFor.pkgsCross.aarch64-multiplatform.stdenv.cc;
       rpiCrossPrefix = rpiCrossCc.targetPrefix;
+      dosCrossCc = pkgsFor.djgpp;
+      dosTriplet = "i586-pc-msdosdjgpp";
+      dosPrefix = "${dosTriplet}-";
       mingwShellHook = ''
         export CROSS_COMPILE="${mingwPrefix}"
         export CC="${mingwCrossCc}/bin/${mingwPrefix}gcc"
@@ -342,10 +345,15 @@
         export QEMU_SYSTEM_AARCH64="${pkgsFor.qemu_full}/bin/qemu-system-aarch64"
       '';
       dosShellHook = ''
-        export CC="${pkgsFor.open-watcom-v2}/bin/wcl"
-        export CXX="${pkgsFor.open-watcom-v2}/bin/wcl386"
-        export WLINK="${pkgsFor.open-watcom-v2}/bin/wlink"
-        export WASM="${pkgsFor.open-watcom-v2}/bin/wasm"
+        export DJDIR="${dosCrossCc}"
+        export CROSS_COMPILE="${dosPrefix}"
+        export CC="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}gcc"
+        export CXX="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}g++"
+        export AR="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}ar"
+        export LD="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}ld"
+        export OBJCOPY="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}objcopy"
+        export OBJDUMP="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}objdump"
+        export STRIP="${dosCrossCc}/${dosTriplet}/bin/${dosPrefix}strip"
         export DOSBOX="${pkgsFor."dosbox-staging"}/bin/dosbox"
       '';
       nativeDevPackages = with pkgsFor; [
@@ -425,7 +433,7 @@
         rpiCrossCc
       ] ++ commonBuildTools;
       dosDevPackages = with pkgsFor; [
-        open-watcom-v2
+        djgpp
         pkgsFor."dosbox-staging"
       ] ++ commonBuildTools;
       z88dkPackage = pkgsFor.z88dk.overrideAttrs (old: {
@@ -455,7 +463,6 @@
         ++ stm32DevPackages
         ++ avrDevPackages
         ++ rpiDevPackages
-        ++ dosDevPackages
         ++ z88dkDevPackages
         ++ nesDevPackages
       );

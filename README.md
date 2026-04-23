@@ -516,8 +516,8 @@ QEMU user-mode as the fast local sanity check.
 
 ### `dos`
 
-Use this shell for DOS development with Open Watcom v2. It exports `CC`,
-`CXX`, `WLINK`, `WASM`, and `DOSBOX`.
+Use this shell for DOS development with DJGPP. It exports `CC`, `CXX`, `AR`,
+`LD`, `OBJCOPY`, `OBJDUMP`, `STRIP`, `DJDIR`, and `DOSBOX`.
 
 Start it with:
 
@@ -528,7 +528,7 @@ nix develop path:.#dos
 Build and run a DOS executable:
 
 ```bash
-$CC -bcl=dos -fe=HELLO.EXE hello.c
+$CC hello.c -o HELLO.EXE
 $DOSBOX -c "mount c ." -c "c:" -c "HELLO.EXE" -c "exit"
 ```
 
