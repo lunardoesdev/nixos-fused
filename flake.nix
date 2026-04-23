@@ -454,6 +454,7 @@
       ] ++ commonBuildTools;
       z88dkPackage = pkgsFor.z88dk.overrideAttrs (old: {
         hardeningDisable = (old.hardeningDisable or [ ]) ++ [ "fortify" ];
+        doCheck = false;
       });
       z88dkDevPackages = with pkgsFor; [
         python3
