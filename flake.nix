@@ -116,6 +116,22 @@
           btrfsUuid = mkDeterministicUuid "${name}:btrfs:root";
         };
       sharedDiskIdentity = mkDiskIdentity cfg.hostName;
+      etcNixosSource = builtins.path {
+        path = ./.;
+        name = "etc-nixos-source";
+        filter =
+          path: type:
+          let
+            baseName = builtins.baseNameOf path;
+          in
+          !(
+            builtins.elem baseName [
+              ".git"
+              "result"
+            ]
+            || lib.hasSuffix ".raw" baseName
+          );
+      };
       luksPasswordFile =
         if cfg.luks.password == null then null else builtins.toFile "luks-password" cfg.luks.password;
       serverLuksKeyFile = "/crypto_keyfile.bin";
@@ -621,6 +637,11 @@
             };
 
           system.stateVersion = cfg.stateVersion;
+        };
+      embeddedEtcNixosModule =
+        { ... }:
+        {
+          environment.etc."nixos".source = etcNixosSource;
         };
       mkSystemPackagesModule =
         {
@@ -1513,6 +1534,7 @@
           disko.nixosModules.disko
           diskConfig
           baseCommonModule
+          embeddedEtcNixosModule
           workstationServicesModule
           workstationPackagesModule
           desktopCommonModule
@@ -1529,6 +1551,7 @@
           disko.nixosModules.disko
           minimalDiskConfig
           baseCommonModule
+          embeddedEtcNixosModule
           minimalDesktopServicesModule
           minimalDesktopPackagesModule
           desktopCommonModule
@@ -1544,6 +1567,7 @@
           disko.nixosModules.disko
           serverDiskConfig
           baseCommonModule
+          embeddedEtcNixosModule
           serverCommonModule
           serverPackagesModule
           autoGrowRootModule
@@ -1556,6 +1580,7 @@
         modules = [
           (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal-new-kernel-no-zfs.nix")
           baseCommonModule
+          embeddedEtcNixosModule
           workstationServicesModule
           workstationPackagesModule
           desktopCommonModule
