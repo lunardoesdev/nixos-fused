@@ -42,6 +42,7 @@ Use `sudo` only for commands that modify the running system or touch real block
 devices.
 
 If you prefer wrappers over long flake paths, use the top-level helpers such as
+`./build-full-system-image.sh`, `./build-full-system-closure.sh`,
 `./build-minimal-gui-image.sh`, `./build-minimal-gui-system-closure.sh`,
 `./build-server-image.sh`, `./build-server-system-closure.sh`, and
 `./build-live-iso.sh`.
